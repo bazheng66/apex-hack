@@ -103,10 +103,8 @@ describe("saved record", () => {
     delete older.mistakes
     delete older.goal
     saveRecord(older)
-    let loaded: RecordState | null = null
-    expect(() => {
-      loaded = loadRecord()
-    }).not.toThrow()
+    expect(() => loadRecord()).not.toThrow()
+    const loaded = loadRecord()
     expect(loaded?.examId).toBe("network")
     expect(loaded?.goal).toBeUndefined()
     expect(loaded?.cards).toBeUndefined()
