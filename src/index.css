@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --color-paper: #f3ecdf;
+  --color-ink: #1c1612;
+  --color-muted: #6e655c;
+  --color-line: #e3d8c8;
+  --color-card: #fffaf3;
+  --color-seal: #8f2d1f;
+  --color-moss: #3d5c45;
+}
+
+@source inline("bg-seal text-seal bg-moss text-moss");
+
+html {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-seal) 22%, var(--color-paper));
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+.sheet {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0.7rem,
+    color-mix(in srgb, var(--color-seal) 34%, var(--color-line)) 0.7rem,
+    color-mix(in srgb, var(--color-seal) 34%, var(--color-line)) calc(0.7rem + 1px),
+    transparent calc(0.7rem + 1px)
+  );
+}
+
+.talk-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-ink) 24%, var(--color-line)) transparent;
+}
+
+.talk-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.talk-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ink) 24%, var(--color-line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
