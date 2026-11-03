@@ -27,6 +27,14 @@ npm run build
 
 数据库迁移在 `supabase/migrations/`。访客演示在 Dashboard 打开 Anonymous，客户端 `signInAnonymously()`，行级权限按 `auth.uid()` 隔离。项目地址：https://bhylflnzkwmhhaskduqp.supabase.co
 
+## 题库导入 API v1
+
+`POST /api/v1/imports` 这一版只做公开链接（`mode: public_url`）。服务端抓取不带 Cookie、Authorization，也不代登。私网、链路本地和云元数据地址会拒绝。登录墙把任务记为 `rejected`，错误码 `LOGIN_WALL`。解析接口是 `ScraplingParser`；Python Scrapling 不能在这个 Node/Vercel 函数里跑，所以用 `NodeScraplingAdapter` 从 HTML/JSON 抽题，`import_jobs.parser` 仍写 `scrapling`。
+
+导入不写 `attempts`。粘贴、上传、扩展包返回 501。体积上限：HTML 2MB，JSON/CSV/Markdown 5MB。
+
+本地对着 Supabase 试见 `docs/api-v1-imports.md`。`npm run dev` 和 Vercel 走同一套处理函数。
+
 ## 给评审的一条路径
 
 1. 首页可以直接点「先看一份练过几天的记录」。这是操作系统、有的章节会崩、页面置换已经掉过一次。
