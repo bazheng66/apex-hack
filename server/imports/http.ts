@@ -13,6 +13,7 @@ import { openUserRepository, readSupabasePublicEnv, type SupabasePublicEnv } fro
 import type { FetchPublic } from "./worker.js"
 import { MESSAGES, runPublicUrlJob } from "./worker.js"
 import type { ScraplingParser } from "./scrapling.js"
+import { inputHash, runLocalJob } from "./local-worker.js"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -148,17 +149,24 @@ async function createImport(request: Request, deps: ImportApiDeps): Promise<Resp
   const auth = await authorize(request, deps)
   if (auth instanceof Response) return auth
   const type = (request.headers.get("content-type") ?? "").toLowerCase()
-  const maxBody = deps.maxBodyBytes ?? LIMITS.jsonCsvMarkdownBytes
-  if (type.includes("multipart/form-data")) {
-    const declared = Number(request.headers.get("content-length") ?? "")
-    if (Number.isFinite(declared) && declared > maxBody) return tooLarge()
-    return notImplemented("upload")
-  }
+  const maxBody = deps.maxBodyBytes ?? LIMITS.jsonCsvMarkdownBytes + 64 * 1024
   const body = await readLimitedBody(request, maxBody)
   if (!body.ok) return tooLarge()
   let parsed: unknown
   try {
-    parsed = JSON.parse(new TextDecoder().decode(body.bytes) || "null")
+    if (type.includes("multipart/form-data")) {
+      const form = await new Request(request.url, { method: "POST", headers: { "content-type": request.headers.get("content-type")! }, body: body.bytes }).formData()
+      const record: Record<string, unknown> = {}
+      for (const [key, value] of form) {
+        if (key === "file" && typeof value !== "string") {
+          if (record.content !== undefined) return invalid("Only one file is supported.")
+          record.content = await value.text()
+          record.filename = value.name
+        } else if (typeof value === "string") record[key] = value
+        else return invalid("Only one file is supported.")
+      }
+      parsed = record
+    } else parsed = JSON.parse(new TextDecoder().decode(body.bytes) || "null")
   } catch {
     return json(400, { error_code: "INVALID_JSON", error_message: "Request body must be JSON." })
   }
@@ -172,9 +180,29 @@ async function createImport(request: Request, deps: ImportApiDeps): Promise<Resp
   }
   if (forbidden) return invalid("Request body is too nested to accept.")
   if (!isImportMode(record.mode)) return invalid("mode is not a supported import mode.")
-  const sized = assertSize(record.mode, body.bytes.byteLength)
+  const content = typeof record.content === "string" ? record.content : typeof record.html === "string" ? record.html : null
+  const sized = assertSize(record.mode, content === null ? body.bytes.byteLength : new TextEncoder().encode(content).byteLength)
   if (sized) return tooLarge()
-  if (record.mode !== "public_url") return notImplemented(record.mode)
+  if (record.mode === "extension_pack") return notImplemented(record.mode)
+  if (record.mode !== "public_url") {
+    if (!content?.trim()) return invalid("content is required for paste and upload.")
+    if (record.mode === "upload_json") {
+      try {
+        const nested = rejectCredentialFields(JSON.parse(content))
+        if (nested === "IMPORT_CREDENTIALS_FORBIDDEN") return json(400, { error_code: nested, error_message: MESSAGES.IMPORT_CREDENTIALS_FORBIDDEN })
+        if (nested) return invalid("Uploaded JSON is too nested.")
+      } catch { return invalid("Uploaded JSON is invalid.") }
+    }
+    if (record.paper_kind !== undefined && !isPaperKind(record.paper_kind)) return invalid("Invalid paper_kind.")
+    if (typeof record.exam_id !== "string" || !isUuid(record.exam_id)) return invalid("exam_id must be a uuid.")
+    if (!await auth.repo.getExam(record.exam_id)) return json(404, { error_code: "EXAM_NOT_FOUND", error_message: "Exam not found." })
+    const declared = typeof record.declared_source_url === "string" ? canonicalPublicUrl(record.declared_source_url) : null
+    if (record.declared_source_url && !declared) return invalid("Invalid declared_source_url.")
+    const input = { content, mode: record.mode, filename: typeof record.filename === "string" ? record.filename : undefined, declaredSourceUrl: declared }
+    const job = await auth.repo.insertJob({ examId: record.exam_id, requestUrl: null, mode: record.mode,
+      inputHash: inputHash(input), declaredSourceUrl: declared, paperKind: isPaperKind(record.paper_kind) ? record.paper_kind : "practice" })
+    return accepted(await runLocalJob(auth.repo, job, input, deps.now))
+  }
   if (typeof record.url !== "string" || !record.url.trim()) return invalid("url is required for public_url.")
   if (urlHasCredentials(record.url)) {
     return json(400, { error_code: "IMPORT_CREDENTIALS_FORBIDDEN", error_message: MESSAGES.IMPORT_CREDENTIALS_FORBIDDEN })
@@ -276,7 +304,7 @@ function tooLarge(): Response {
 function notImplemented(mode: string): Response {
   return json(501, {
     error_code: "NOT_IMPLEMENTED",
-    error_message: `mode ${mode} is not implemented. This version supports public_url only.`,
+    error_message: `mode ${mode} is not implemented. Use public_url, paste_html, upload_json, upload_csv, or upload_markdown.`,
   })
 }
 

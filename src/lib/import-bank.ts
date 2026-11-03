@@ -8,6 +8,32 @@ import {
   type StoredImport,
 } from "../engine/import-bank.ts"
 import { safePageUrl } from "../engine/extract.ts"
+import { bootstrapSupabaseAuth, supabase } from "./supabase.ts"
+import { findCloudRecord } from "./cloud-record.ts"
+
+export interface CloudImportInput {
+  mode: "public_url" | "paste_html" | "upload_json" | "upload_csv" | "upload_markdown"
+  url?: string
+  content?: string
+  filename?: string
+}
+export async function requestCloudImport(examSlug: string, input: CloudImportInput): Promise<ImportedStem[]> {
+  if (!supabase) throw new Error("云同步尚未配置。")
+  await bootstrapSupabaseAuth()
+  const { data, error } = await supabase.auth.getSession()
+  if (error || !data.session) throw new Error("匿名会话未建立，请重试同步。")
+  const cloud = await findCloudRecord(supabase, data.session.user.id, examSlug)
+  if (!cloud) throw new Error("请先同步考试记录，再重试导入。")
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` }
+  const response = await fetch("/api/v1/imports", { method: "POST", headers, body: JSON.stringify({ exam_id: cloud.id, ...input }) })
+  const result = await response.json() as { status?: string; source_id?: string; error_code?: string }
+  if (result.error_code === "LOGIN_WALL") throw new Error("LOGIN_WALL")
+  if (!response.ok || result.status !== "succeeded" || !result.source_id) throw new Error(result.error_code === "PARSE_EMPTY" ? "没有读到题目，请检查格式后重试。" : "题库同步失败，请重试。")
+  const itemsResponse = await fetch(`/api/v1/items?source_id=${encodeURIComponent(result.source_id)}&limit=100`, { headers })
+  if (!itemsResponse.ok) throw new Error("题目已收录，读取结果失败，请重试。")
+  const items = await itemsResponse.json() as { items: { prompt: string }[] }
+  return items.items.map((item) => ({ stem: item.prompt }))
+}
 
 export async function requestPublicImport(url: string): Promise<ImportFetchResult & { sourceUrl?: string }> {
   const safe = safePageUrl(url.trim())

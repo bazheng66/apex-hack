@@ -4,6 +4,22 @@
     {
       "source": "/api/v1/imports/:jobId",
       "destination": "/api/v1/imports?job_id=:jobId"
+    },
+    {
+      "source": "/today",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/talk",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mock",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/progress",
+      "destination": "/index.html"
     }
   ]
 }

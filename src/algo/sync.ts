@@ -4,6 +4,7 @@ import type { PlanTopic } from "../engine/plan.ts"
 import type { ExamId, Goal, LevelId, Mastery, RecordState } from "../engine/types.ts"
 import { todayKey } from "../lib/day.ts"
 import { supabase } from "../lib/supabase.ts"
+import { readable } from "../lib/storage.ts"
 import { isAttemptKind, isPaperKind, type AttemptEvent, type AttemptPayload, type SourcePaper } from "./events.ts"
 import { deriveFromRecord, replayAttempts, type DerivedState } from "./replay.ts"
 import { ALGO_VERSION } from "./version.ts"
@@ -20,6 +21,7 @@ interface ExamRow {
   level_hint: string | null
   exam_date: string | null
   target_score: number | string | null
+  record_state?: unknown
 }
 
 interface TopicRow {
@@ -106,6 +108,19 @@ function goalFor(state: RecordState, exam: ExamRow): Goal | null {
 function assertOk<T>(result: { data: T; error: { message: string } | null }, label: string): T {
   if (result.error) throw new Error(`${label}: ${result.error.message}`)
   return result.data
+}
+
+async function allAttempts(client: SupabaseClient, userId: string, examId: string): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = []
+  for (let offset = 0; ; offset += 1000) {
+    const result = await client.from("attempts")
+      .select("id, topic_id, source_id, kind, paper_kind, occurred_at, local_day, payload")
+      .eq("user_id", userId).eq("exam_id", examId)
+      .order("occurred_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 999)
+    const page = (assertOk(result, "attempts") ?? []) as Record<string, unknown>[]
+    rows.push(...page)
+    if (page.length < 1000) return rows
+  }
 }
 
 async function writeDerived(client: SupabaseClient, userId: string, examId: string, derived: DerivedState) {
@@ -201,7 +216,7 @@ export async function persistDerivedFromRecord(
     const userId = session.data.session.user.id
     const examResult = await client
       .from("exams")
-      .select("id, level_hint, exam_date, target_score")
+      .select("id, level_hint, exam_date, target_score, record_state")
       .eq("user_id", userId)
       .eq("slug", state.examId)
       .maybeSingle()
@@ -210,22 +225,30 @@ export async function persistDerivedFromRecord(
 
     const [topicResult, attemptResult, sourceResult] = await Promise.all([
       client.from("topics").select("id, slug, name, drill_prompt, minimum_prompt, sort_order").eq("user_id", userId).eq("exam_id", exam.id).order("sort_order", { ascending: true }),
-      client
-        .from("attempts")
-        .select("id, topic_id, source_id, kind, paper_kind, occurred_at, local_day, payload")
-        .eq("user_id", userId)
-        .eq("exam_id", exam.id)
-        .order("occurred_at", { ascending: true })
-        .order("id", { ascending: true }),
+      allAttempts(client, userId, exam.id),
       client.from("sources").select("id, paper_kind").eq("user_id", userId).eq("exam_id", exam.id),
     ])
     const topicRows = (assertOk(topicResult, "topics") ?? []) as TopicRow[]
-    const attemptRows = (assertOk(attemptResult, "attempts") ?? []) as Record<string, unknown>[]
+    const attemptRows = attemptResult
     const sourceRows = (assertOk(sourceResult, "sources") ?? []) as { id: string; paper_kind: string | null }[]
     const attempts = attemptRows.map((row) => mapAttempt(row)).filter((row): row is AttemptEvent => row !== null)
-    if (attempts.length === 0) return { persisted: false, reason: "no-attempts", algoVersion: ALGO_VERSION, derived: local }
-
     const topics = cloudTopics(state.examId, topicRows)
+    // Old local records did not retain raw answers. Keep their migrated snapshot
+    // losslessly; never infer a correct answer from a score delta.
+    if (readable(exam.record_state) && (attempts.length === 0 || exam.record_state.sessions.some((session) =>
+      (session.kind === "mock" || session.kind === "upload") && !session.payload))) {
+      const checkpoint = deriveFromRecord(exam.record_state, today)
+      const idFor = (id: string) => topics.find((topic) => topic.slug === id)?.id ?? id
+      const derived: DerivedState = { ...checkpoint,
+        mastery: checkpoint.mastery.map((item) => ({ ...item, topicId: idFor(item.topicId) })),
+        abilities: checkpoint.abilities.map((item) => ({ ...item, topicId: idFor(item.topicId) })),
+        topics: checkpoint.topics.map((item) => ({ ...item, topicId: idFor(item.topicId) })),
+        plan: checkpoint.plan ? { ...checkpoint.plan, topicId: idFor(checkpoint.plan.topicId) } : null,
+      }
+      await writeDerived(client, userId, exam.id, derived)
+      return { persisted: true, reason: "upserted", algoVersion: ALGO_VERSION, derived }
+    }
+    if (attempts.length === 0) return { persisted: false, reason: "no-attempts", algoVersion: ALGO_VERSION, derived: local }
     const sources: SourcePaper[] = sourceRows.map((row) => ({
       id: row.id,
       paperKind: isPaperKind(row.paper_kind) ? row.paper_kind : null,

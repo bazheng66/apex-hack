@@ -47,6 +47,8 @@ export interface Session {
   detail: string
   scoreBefore: number
   scoreAfter: number
+  occurredAt?: string
+  payload?: import("../algo/events.ts").AttemptPayload
 }
 
 export interface Daily {

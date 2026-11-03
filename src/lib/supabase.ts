@@ -12,6 +12,14 @@ export function createSupabaseClient(url: string | undefined, publishableKey: st
   const supabaseUrl = configured(url)
   const key = configured(publishableKey)
   if (!supabaseUrl || !key) return null
+  if (key.startsWith("sb_secret_")) throw new Error("Supabase client requires a publishable key")
+  const jwtPayload = key.split(".")[1]
+  if (jwtPayload) {
+    try {
+      const payload = JSON.parse(atob(jwtPayload.replace(/-/g, "+").replace(/_/g, "/"))) as { role?: string }
+      if (payload.role === "service_role") throw new Error("service_role cannot be used by the browser")
+    } catch (error) { if (error instanceof Error && error.message.includes("service_role")) throw error }
+  }
   return createClient(supabaseUrl, key)
 }
 
@@ -45,6 +53,6 @@ export function bootstrapSupabaseAuth(getCaptchaToken?: CaptchaTokenProvider): P
   bootstrap ??= ensureAnonymousSession(supabase, getCaptchaToken).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "unknown error"
     console.warn("Supabase anonymous auth did not start", message)
-  })
+  }).finally(() => { bootstrap = null })
   return bootstrap
 }

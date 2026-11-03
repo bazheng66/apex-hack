@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { syncAfterLocalChange } from "../algo/index.ts"
 import { gradePaper, letterOf, nextPaper, recordUpload } from "../engine/agent.ts"
 import { QUESTIONS, examById, topicById } from "../engine/catalog.ts"
 import type { GradeItem } from "../engine/types.ts"
@@ -167,7 +166,6 @@ function SitePaper() {
         const today = todayKey()
         const graded = gradePaper(state, choices, today)
         setState(graded.state)
-        syncAfterLocalChange(graded.state)
         setReview(graded.items)
         setFeedback(
           mockSessionSubmit({
@@ -267,7 +265,6 @@ function UploadForm() {
         const beforeScore = state.mastery.find((item) => item.topicId === topicId)?.score ?? 0
         const afterScore = result.state.mastery.find((item) => item.topicId === topicId)?.score ?? beforeScore
         setState(result.state)
-        syncAfterLocalChange(result.state)
         setLine(result.line)
         setFeedback(
           mockSessionSubmit({

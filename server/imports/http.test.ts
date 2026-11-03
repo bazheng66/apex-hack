@@ -79,7 +79,7 @@ describe("import http api", () => {
     expect(huge.status).toBe(413)
     expect(await huge.json()).toMatchObject({ error_code: "PAYLOAD_TOO_LARGE" })
 
-    for (const mode of ["paste_html", "upload_json", "upload_csv", "upload_markdown", "extension_pack"]) {
+    for (const mode of ["extension_pack"]) {
       const response = await handleImportsApi(post({ exam_id: EXAM, mode, html: "<p>题</p>" }, TOKEN), deps)
       expect(response.status, mode).toBe(501)
       expect(await response.json()).toMatchObject({ error_code: "NOT_IMPLEMENTED" })
@@ -91,8 +91,43 @@ describe("import http api", () => {
       }),
       deps,
     )
-    expect(upload.status).toBe(501)
+    expect(upload.status).toBe(400)
     expect(repo.jobs.size).toBe(0)
+  })
+
+  it("imports pasted and uploaded formats, preserves supplied answers, and deduplicates retries", async () => {
+    const { repo, deps } = harness({ fetchPublic: async () => { throw new Error("Local imports must not fetch") } })
+    const fixtures = [
+      { mode: "paste_html", content: `<ol><li>${stemA}</li></ol>` },
+      { mode: "upload_json", content: JSON.stringify({ questions: [{ prompt: stemC, choices: ["页表", "段表"], answer_index: 0 }] }) },
+      { mode: "upload_csv", content: `prompt\n"${stemB}"` },
+      { mode: "upload_markdown", content: `- ${stemC}` },
+    ]
+    for (const input of fixtures) {
+      const first = await handleImportsApi(post({ exam_id: EXAM, ...input }, TOKEN), deps)
+      expect(await first.json()).toMatchObject({ status: "succeeded" })
+      const sources = repo.sources.size, items = repo.items.size
+      const retry = await handleImportsApi(post({ exam_id: EXAM, ...input }, TOKEN), deps)
+      expect(await retry.json()).toMatchObject({ status: "succeeded" })
+      expect(repo.sources.size).toBe(sources)
+      expect(repo.items.size).toBe(items)
+    }
+    expect(repo.sources.size).toBe(4)
+    expect([...repo.items.values()].find((item) => item.answer_index === 0)?.choices).toEqual(["页表", "段表"])
+    const credential = await handleImportsApi(post({ exam_id: EXAM, mode: "upload_json", content: JSON.stringify({ cookies: "forbidden", prompt: stemA }) }, TOKEN), deps)
+    expect(credential.status).toBe(400)
+    const foreignExam = await handleImportsApi(post({ exam_id: OTHER, ...fixtures[0] }, TOKEN), deps)
+    expect(foreignExam.status).toBe(404)
+  })
+
+  it("accepts a multipart file and preserves case-sensitive boundaries", async () => {
+    const { deps } = harness()
+    const form = new FormData()
+    form.set("exam_id", EXAM)
+    form.set("mode", "upload_json")
+    form.set("file", new File([JSON.stringify([{ prompt: stemA }])], "Bank.json", { type: "application/json" }))
+    const response = await handleImportsApi(new Request("http://localhost/api/v1/imports", { method: "POST", headers: { authorization: `Bearer ${TOKEN}` }, body: form }), deps)
+    expect(await response.json()).toMatchObject({ status: "succeeded" })
   })
 
   it("imports a public page, upserts items by external key, and reads them back", async () => {
@@ -239,7 +274,7 @@ class MemoryRepo implements ImportRepository {
       id: crypto.randomUUID(),
       exam_id: input.examId,
       source_id: null,
-      mode: "public_url",
+      mode: input.mode ?? "public_url",
       status: "queued",
       request_url: input.requestUrl,
       declared_source_url: null,
@@ -294,14 +329,14 @@ class MemoryRepo implements ImportRepository {
   }
 
   async upsertSource(input: SourceUpsert): Promise<{ id: string }> {
-    const existing = [...this.sources.values()].find((source) => source.url === input.url)
+    const existing = [...this.sources.values()].find((source) => input.id ? source.id === input.id : source.url === input.url)
     if (existing && existing.exam_id !== input.examId) throw new SourceExamConflict()
     const stamp = this.stamp()
-    const id = existing?.id ?? crypto.randomUUID()
+    const id = existing?.id ?? input.id ?? crypto.randomUUID()
     this.sources.set(id, {
       id,
       exam_id: input.examId,
-      kind: "url",
+      kind: input.kind ?? "url",
       paper_kind: input.paperKind,
       url: input.url,
       title: input.title,

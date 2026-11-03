@@ -1,6 +1,6 @@
 # `/api/v1/imports`
 
-Public URL import only. Paste, upload, and extension pack return `501 NOT_IMPLEMENTED`.
+Supports public URL, pasted HTML/plain text, and JSON/CSV/Markdown uploads. Only extension packs return `501 NOT_IMPLEMENTED`.
 
 The worker runs inside the request. There is no separate queue in this environment. A successful import still responds `202` with the terminal job status.
 
@@ -25,6 +25,14 @@ Content-Type: application/json
 
 `paper_kind` is `practice` (default), `diagnostic`, or `standard`.
 
+For local content, send JSON with `mode`, `exam_id`, and `content` (a string). Modes are `paste_html`, `upload_json`, `upload_csv`, and `upload_markdown`. `html` is also accepted as an alias for `content`. Optional `filename` labels the source, and `declared_source_url` records attribution without fetching the URL.
+
+```json
+{ "exam_id": "<uuid>", "mode": "upload_json", "content": "[{\"prompt\":\"分页与分段的地址映射有什么差别？\",\"choices\":[\"页表\",\"段表\"],\"answer_index\":0}]", "filename": "os.json" }
+```
+
+Multipart requests use the same fields with a single `file` part. HTML is capped at 2MB and other local formats at 5MB before parsing; the hosting platform can impose a lower request limit. JSON preserves supplied choices and answers. CSV/Markdown currently import stems only. Missing choices or answers stay null. The raw supplied document is not stored. A content hash scopes stable source IDs to the caller and exam, so retrying the same mode and content does not duplicate sources/items. A retry creates a new job for audit.
+
 Success:
 
 ```json
@@ -39,7 +47,7 @@ Success:
 | 404 | `EXAM_NOT_FOUND` |
 | 413 | `PAYLOAD_TOO_LARGE` |
 | 422 | `LOGIN_WALL` |
-| 501 | Any mode other than `public_url` |
+| 501 | `extension_pack` |
 
 Bodies that contain `cookie`, `cookies`, `authorization`, `storage_state`, `set-cookie`, or `headers` (any nesting, any of those casings) are `400 IMPORT_CREDENTIALS_FORBIDDEN` and are not stored. A URL with a username or password is the same rejection. The fetcher does not forward the caller's `Cookie` or `Authorization`, and it does not replay `Set-Cookie`.
 
