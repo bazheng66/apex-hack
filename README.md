@@ -23,6 +23,10 @@ npm run lint
 npm run build
 ```
 
+## Supabase
+
+数据库迁移在 `supabase/migrations/`。访客演示在 Dashboard 打开 Anonymous，客户端 `signInAnonymously()`，行级权限按 `auth.uid()` 隔离。项目地址：https://bhylflnzkwmhhaskduqp.supabase.co
+
 ## 给评审的一条路径
 
 1. 首页可以直接点「先看一份练过几天的记录」。这是操作系统、有的章节会崩、页面置换已经掉过一次。
