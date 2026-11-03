@@ -1,4 +1,4 @@
-import { clipText, safePageUrl } from "./extract.ts"
+import { clipText, safePageUrl } from "./extract.js"
 
 /** User-facing lines from the import-bank draft. Kept here so the panel and tests share one source. */
 export const IMPORT_COPY = {

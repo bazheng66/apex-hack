@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/v1/imports/:jobId",
+      "destination": "/api/v1/imports?job_id=:jobId"
+    }
+  ]
+}
