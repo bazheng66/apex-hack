@@ -20,6 +20,7 @@ import {
   type WaitKind,
 } from "../lib/talk.ts"
 import { useRecord } from "../lib/useRecord.tsx"
+import ImportBank from "./ImportBank.tsx"
 
 export default function Talk() {
   const { state, setState } = useRecord()
@@ -31,6 +32,7 @@ export default function Talk() {
   const [busy, setBusy] = useState(false)
   const [wait, setWait] = useState<WaitKind | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLOListElement>(null)
   const lock = useRef(false)
@@ -313,6 +315,13 @@ export default function Talk() {
             找真题
           </button>
           <button
+            type="button"
+            className="h-12 rounded-[2px] border border-line bg-transparent px-4 text-sm text-ink hover:border-seal"
+            onClick={() => setImportOpen(true)}
+          >
+            导入题库
+          </button>
+          <button
             type="submit"
             className="ml-auto h-12 rounded-[2px] bg-seal px-6 text-sm text-paper hover:bg-[#742418] disabled:opacity-40"
             disabled={busy || (!draft.trim() && !image)}
@@ -328,6 +337,7 @@ export default function Talk() {
           />
         </div>
       </form>
+      <ImportBank open={importOpen} onOpenChange={setImportOpen} examId={examId} />
     </section>
   )
 }
