@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { examById } from "../engine/catalog.ts"
 import { useRecord } from "../lib/useRecord.tsx"
 import { cn } from "../lib/cn.ts"
+import { SyncNotice } from "./SyncNotice.tsx"
 
 const LINKS = [
   { to: "/today", label: "今日" },
@@ -70,6 +71,7 @@ export default function Shell() {
           talk ? "flex min-h-0 min-w-0 flex-1 flex-col pt-6" : "py-10 sm:py-12",
         )}
       >
+        <SyncNotice />
         <Outlet />
       </main>
     </div>

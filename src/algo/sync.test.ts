@@ -50,6 +50,7 @@ function fake(seed: {
         order() {
           return query
         },
+        range() { return query },
         maybeSingle() {
           return Promise.resolve({ data: table === "exams" ? (seed.exam ?? null) : null, error: null })
         },

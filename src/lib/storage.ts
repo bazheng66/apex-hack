@@ -24,10 +24,21 @@ function isDaily(value: unknown): boolean {
   )
 }
 
-function readable(value: unknown): value is RecordState {
+function isSession(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false
+  const row = value as Record<string, unknown>
+  return typeof row.id === "string" && typeof row.date === "string" && typeof row.topicId === "string" &&
+    ["drill-done", "drill-shrink", "drill-skip", "mock", "upload"].includes(String(row.kind)) &&
+    typeof row.detail === "string" && typeof row.scoreBefore === "number" && Number.isFinite(row.scoreBefore) &&
+    typeof row.scoreAfter === "number" && Number.isFinite(row.scoreAfter)
+}
+
+export function readable(value: unknown): value is RecordState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false
   const state = value as Partial<RecordState>
-  return typeof state.examId === "string" && isScoredTopicList(state.mastery) && isScoredTopicList(state.baseline) && isDaily(state.daily)
+  return (state.examId === "os" || state.examId === "network" || state.examId === "ds") &&
+    ["start", "basic", "uneven", "polish"].includes(state.level ?? "") && Array.isArray(state.sessions) && state.sessions.every(isSession) &&
+    Array.isArray(state.answeredIds) && isScoredTopicList(state.mastery) && isScoredTopicList(state.baseline) && isDaily(state.daily)
 }
 
 export function loadRecord(): RecordState | null {

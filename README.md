@@ -4,6 +4,13 @@
 
 完整题库以后可以收费。这一版每个考试只开放四道题，用来把错法和分数记实。
 
+作品定位、功能、算法规则、技术架构与已知边界见 [作品介绍](docs/PROJECT.md)。
+
+- 前端：React 19 · Vite 8 · TypeScript · Tailwind 4 · React Router 7
+- 数据：Supabase（匿名登录 + RLS + 事务化记录同步）
+- 服务端：Vercel Functions（DeepSeek 评语/识图/检索、题库导入 API v1）
+- 测试：160 个用例通过，含 PGlite 真实 PostgreSQL 迁移、RLS 跨用户隔离、版本冲突
+
 ## 本地运行
 
 ```bash
@@ -11,7 +18,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 http://127.0.0.1:4731 。不用注册。记录在这台浏览器里。
+浏览器打开 http://127.0.0.1:4731 。不用注册。配置 Supabase 后使用匿名会话同步记录；未配置时保存在本机。匿名身份依赖当前浏览器数据，尚不支持换设备恢复。
 
 Testpass 的评语、识图和真题检索走 DeepSeek。把 `.env.example` 复制成 `.env`，填入 `DEEPSEEK_API_KEY`，再启动。密钥只在本地服务里使用，不要加 `VITE_` 前缀，也不要提交 `.env`。接口不可用时，页面仍显示按规则写成的话，分数不受影响。
 
@@ -29,11 +36,13 @@ npm run build
 
 ## 题库导入 API v1
 
-`POST /api/v1/imports` 这一版只做公开链接（`mode: public_url`）。服务端抓取不带 Cookie、Authorization，也不代登。私网、链路本地和云元数据地址会拒绝。登录墙把任务记为 `rejected`，错误码 `LOGIN_WALL`。解析接口是 `ScraplingParser`；Python Scrapling 不能在这个 Node/Vercel 函数里跑，所以用 `NodeScraplingAdapter` 从 HTML/JSON 抽题，`import_jobs.parser` 仍写 `scrapling`。
+`POST /api/v1/imports` 支持公开链接、粘贴 HTML/纯文本、JSON/CSV/Markdown 上传。服务端抓取不带 Cookie、Authorization，也不代登。私网、链路本地和云元数据地址会拒绝。登录墙把任务记为 `rejected`，错误码 `LOGIN_WALL`，界面引导用户粘贴或上传。Python Scrapling 不能在这个 Node/Vercel 函数里跑，所以用 Node 适配器抽题。
 
-导入不写 `attempts`。粘贴、上传、扩展包返回 501。体积上限：HTML 2MB，JSON/CSV/Markdown 5MB。
+导入不写 `attempts`。扩展包仍返回 501。应用体积上限：HTML 2MB，JSON/CSV/Markdown 5MB；部署平台可能有更低的请求上限，当前界面上传限 1.5MB。
 
 本地对着 Supabase 试见 `docs/api-v1-imports.md`。`npm run dev` 和 Vercel 走同一套处理函数。
+
+同步协议、迁移步骤与发布检查见 [部署交接](docs/deployment.md)。新客户端上线前必须应用 `20261103130000_record_sync.sql`。考试快照保留旧版未记录原始答案的数据；新答题事件只追加到 `attempts`，重复发送按稳定事件 ID 去重。
 
 ## 给评审的一条路径
 
@@ -53,3 +62,7 @@ npm run build
 | `SKIP_SHRINK` | 当天说做不动，收到 12 分钟；再说一次，今天不再加任务 |
 
 站内做对 +8，做错 −4。自己交来的卷子按正确率相对 60% 增减，最高 96，最低 8。同一份记录再交一次，增减相同。
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。

@@ -257,7 +257,7 @@ describe("student model", () => {
     if (!passed.ok) return
     expect(passed.state.mastery.find((item) => item.topicId === "os-schedule")?.score).toBe(36)
     expect(passed.state.abilities?.find((item) => item.topicId === "os-schedule")).toEqual(applyAbility(seeded, true, 1200))
-    expect(passed.state.sessions.at(-1)?.id).toBe("2026-11-02-upload-os-schedule-0-3-5")
+    expect(passed.state.sessions.at(-1)?.id).toMatch(/^[0-9a-f-]{36}$/)
     expect(passed.state.mistakes).toEqual([
       {
         id: "2026-11-02-upload-0",
@@ -289,7 +289,7 @@ describe("student model", () => {
     })
     expect(repeated.ok).toBe(true)
     if (!repeated.ok) return
-    expect(repeated.state.sessions.at(-1)?.id).toBe("2026-11-02-upload-os-schedule-1-3-5")
+    expect(repeated.state.sessions.at(-1)?.id).not.toBe(passed.state.sessions.at(-1)?.id)
     expect(repeated.state.cards).toHaveLength(1)
     expect(repeated.state.mistakes).toHaveLength(2)
     expect(repeated.state.abilities?.find((item) => item.topicId === "os-schedule")).toEqual(

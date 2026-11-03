@@ -5,6 +5,7 @@ import { applyTopicAbility, clampScore, DRILL_DONE_DELTA, itemScoreDelta, upload
 import type { Ability, Daily, GradeItem, Mastery, MistakeNote, Question, RecordState, ReviewCard, Session, SessionKind } from "./types.ts"
 
 export { clampScore, scoreOf }
+let lastOccurrence = 0
 
 export function weakest(state: Pick<RecordState, "examId" | "mastery">) {
   return weakestOf(examById(state.examId).topics, state.mastery)
@@ -19,14 +20,17 @@ function session(
   after: number,
   salt: string,
 ): Session {
+  lastOccurrence = Math.max(Date.now(), lastOccurrence + 1)
   return {
-    id: `${date}-${kind}-${topicId}-${salt}`,
+    id: salt.startsWith("demo-") || salt === "rolled" ? `${date}-${kind}-${topicId}-${salt}` : crypto.randomUUID(),
+    occurredAt: new Date(lastOccurrence).toISOString(),
     date,
     kind,
     topicId,
     detail,
     scoreBefore: before,
     scoreAfter: after,
+    ...(kind.startsWith("drill-") ? { payload: { ...(salt === "rolled" ? { reason: "rolled" } : {}), ...(kind === "drill-shrink" ? { minutes_after: 12 } : {}) } } : {}),
   }
 }
 
@@ -260,7 +264,7 @@ export function gradePaper(state: RecordState, choices: Record<string, number>, 
     abilities = applyTopicAbility(abilities, question.topicId, correct, before)
     const note = question.notes[chosen] ?? ""
     items.push({ questionId: question.id, topicId: question.topicId, chosen, correct, note, before, after })
-    sessions.push(session(today, "mock", question.topicId, note, before, after, question.id))
+    sessions.push({ ...session(today, "mock", question.topicId, note, before, after, question.id), payload: { correct, chosen, note, items: [{ item_id: question.id, topic_id: question.topicId, chosen, correct, note }] } })
     if (!correct) {
       mistakes = [
         ...mistakes,
@@ -330,7 +334,7 @@ export function recordUpload(
     abilities,
     cards,
     mistakes,
-    sessions: [...state.sessions, session(input.today, "upload", topic.id, detail, before, after, `${salt}-${input.correct}-${input.total}`)],
+    sessions: [...state.sessions, { ...session(input.today, "upload", topic.id, detail, before, after, `${salt}-${input.correct}-${input.total}`), payload: { correct_count: input.correct, total: input.total, mistake_text: mistake } }],
   }
   next = replanIfWeakestMoved(next, input.today, state.daily.topicId)
   const switched = next.daily.topicId !== state.daily.topicId && state.daily.status === "open"

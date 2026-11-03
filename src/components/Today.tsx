@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Companion } from "./Companion.tsx"
 import { PagingLab } from "./coach/PagingLab.tsx"
-import { planDraft, syncAfterLocalChange } from "../algo/index.ts"
+import { planDraft } from "../algo/index.ts"
 import { deferToday, finishToday, scoreOf, seniorLine, shiftDate } from "../engine/agent.ts"
 import { examById, levelById, topicById } from "../engine/catalog.ts"
 import type { ReviewCard } from "../engine/types.ts"
@@ -229,7 +229,6 @@ export default function Today() {
               onClick={() => {
                 const next = finishToday(state)
                 setState(next)
-                syncAfterLocalChange(next)
               }}
             >
               做完了
@@ -240,7 +239,6 @@ export default function Today() {
               onClick={() => {
                 const next = deferToday(state)
                 setState(next)
-                syncAfterLocalChange(next)
               }}
             >
               今天做不动

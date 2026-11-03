@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import type { ImportStatus, PaperKind } from "./contract.js"
+import type { ImportMode, ImportStatus, PaperKind } from "./contract.js"
 
 export type TableName = "users" | "exams" | "sources" | "items" | "import_jobs"
 
@@ -56,8 +56,11 @@ export interface ItemRecord {
 
 export interface NewJob {
   examId: string
-  requestUrl: string
+  requestUrl: string | null
   paperKind: PaperKind
+  mode?: ImportMode
+  inputHash?: string
+  declaredSourceUrl?: string | null
 }
 
 export interface JobPatch {
@@ -71,12 +74,14 @@ export interface JobPatch {
 
 export interface SourceUpsert {
   examId: string
-  url: string
+  url: string | null
   title: string
   paperKind: PaperKind
   etag: string | null
   fetchedAt: string
   rawMeta: Record<string, unknown>
+  id?: string
+  kind?: "url" | "upload" | "manual"
 }
 
 export interface ItemUpsert {
@@ -164,9 +169,11 @@ export class SupabaseImportRepository implements ImportRepository {
         .insert({
           user_id: this.userId,
           exam_id: input.examId,
-          mode: "public_url",
+          mode: input.mode ?? "public_url",
           status: "queued",
           request_url: input.requestUrl,
+          input_sha256: input.inputHash ?? null,
+          declared_source_url: input.declaredSourceUrl ?? null,
           paper_kind: input.paperKind,
           parser: "scrapling",
         })
@@ -219,6 +226,15 @@ export class SupabaseImportRepository implements ImportRepository {
   }
 
   async upsertSource(input: SourceUpsert): Promise<{ id: string }> {
+    if (input.id && input.kind && input.kind !== "url") {
+      const row = await one(table(this.client, "sources").upsert({
+        id: input.id, user_id: this.userId, exam_id: input.examId, kind: input.kind,
+        url: null, title: input.title, paper_kind: input.paperKind, status: "ready",
+        last_fetched_at: input.fetchedAt, raw_meta: input.rawMeta, error_message: null,
+      }, { onConflict: "id" }).select("id").single())
+      return { id: text(row, "id") }
+    }
+    if (!input.url) throw new RepositoryError("Source URL required")
     const existing = await this.findSource(input.url)
     if (existing) {
       if (existing.exam_id !== input.examId) throw new SourceExamConflict()

@@ -9,7 +9,9 @@ import {
   type ImportedStem,
 } from "../engine/import-bank.ts"
 import { safePageUrl } from "../engine/extract.ts"
-import { readUploadedText, rememberImport, requestPublicImport } from "../lib/import-bank.ts"
+import { readUploadedText, rememberImport, requestPublicImport, requestCloudImport, type CloudImportInput } from "../lib/import-bank.ts"
+import { supabase } from "../lib/supabase.ts"
+import { useRecord } from "../lib/useRecord.tsx"
 import { cn } from "../lib/cn.ts"
 import { Button } from "./ui/button.tsx"
 
@@ -29,6 +31,10 @@ export default function ImportBank({
   onOpenChange: (open: boolean) => void
   examId: string
 }) {
+  const { flushSync } = useRecord()
+  const [cloudPhase, setCloudPhase] = useState<"idle" | "syncing" | "synced" | "error">("idle")
+  const [cloudError, setCloudError] = useState("")
+  const pendingCloud = useRef<CloudImportInput | null>(null)
   const [url, setUrl] = useState("")
   const [mode, setMode] = useState<Mode>("public")
   const [phase, setPhase] = useState<Phase>("idle")
@@ -52,11 +58,39 @@ export default function ImportBank({
   }, [])
 
   function resetOutcome() {
+    setCloudPhase("idle")
+    pendingCloud.current = null
     setPhase("idle")
     setDoneKind(null)
     setQuestions([])
     setSourceLabel(null)
     setNotice(null)
+  }
+
+  async function syncImport(input: CloudImportInput) {
+    if (!supabase || lock.current) return
+    pendingCloud.current = input
+    lock.current = true
+    setCloudPhase("syncing")
+    setCloudError("")
+    try {
+      await flushSync()
+      const found = await requestCloudImport(examId, input)
+      if (!live.current) return
+      setQuestions(found)
+      setPhase("done")
+      setDoneKind(input.mode === "public_url" ? "url" : input.filename ? "file" : "paste")
+      setMode(input.mode === "public_url" ? "public" : "gated")
+      setSourceLabel(input.filename ?? input.url ?? null)
+      setNotice(`已收录 ${found.length} 题`)
+      setCloudPhase("synced")
+      pendingCloud.current = null
+    } catch (error) {
+      if (!live.current) return
+      if (error instanceof Error && error.message === "LOGIN_WALL") { setMode("gated"); setPhase("idle"); setCloudPhase("idle"); return }
+      setCloudPhase("error")
+      setCloudError(error instanceof Error ? error.message : "云同步失败，请重试。")
+    } finally { lock.current = false }
   }
 
   function onDialogChange(next: boolean) {
@@ -124,6 +158,7 @@ export default function ImportBank({
       setNotice(httpish ? null : IMPORT_COPY.badUrl)
       return
     }
+    if (supabase) { await syncImport({ mode: "public_url", url: trimmed }); return }
     lock.current = true
     setPhase("reading")
     setDoneKind(null)
@@ -166,6 +201,7 @@ export default function ImportBank({
     event.preventDefault()
     const text = paste.slice(0, 1_000_000)
     if (!text.trim()) return
+    if (supabase) { void syncImport({ mode: "paste_html", content: text }); return }
     showLocal("paste", "", parseImportedBank(text))
   }
 
@@ -182,6 +218,10 @@ export default function ImportBank({
     void readUploadedText(file)
       .then((text) => {
         if (readToken.current !== token) return
+        if (supabase) {
+          void syncImport({ mode: hint === "json" ? "upload_json" : hint === "csv" ? "upload_csv" : hint === "md" ? "upload_markdown" : "paste_html", content: text, filename: file.name })
+          return
+        }
         showLocal("file", file.name, parseImportedBank(text, hint))
       })
       .catch(() => {
@@ -190,7 +230,7 @@ export default function ImportBank({
       })
   }
 
-  const reading = phase === "reading"
+  const reading = phase === "reading" || cloudPhase === "syncing"
   const publicDone = mode === "public" && phase === "done" && doneKind === "url"
   const localDone = mode === "gated" && phase === "done" && (doneKind === "file" || doneKind === "paste")
 
@@ -308,14 +348,14 @@ export default function ImportBank({
                     <Button variant="secondary" onClick={acknowledge}>
                       {IMPORT_COPY.acknowledge}
                     </Button>
-                    <Button type="submit" className="ml-auto" disabled={!paste.trim()}>
+                    <Button type="submit" className="ml-auto" disabled={reading || !paste.trim()}>
                       {IMPORT_COPY.collect}
                     </Button>
                   </div>
                 </form>
               ) : (
                 <div className="mt-4">
-                  <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+                  <Button variant="secondary" disabled={reading} onClick={() => fileRef.current?.click()}>
                     {IMPORT_COPY.pickFile}
                   </Button>
                   <input
@@ -355,6 +395,10 @@ export default function ImportBank({
               </button>
             </>
           )}
+          {cloudPhase !== "idle" && <div role="status" aria-live="polite" className="mt-4 border-t border-line pt-3 text-sm leading-7 text-muted">
+            {cloudPhase === "syncing" ? "正在同步题库…" : cloudPhase === "synced" ? "题库已同步" : cloudError}
+            {cloudPhase === "error" && <button type="button" className="ml-3 text-seal underline" onClick={() => { if (pendingCloud.current) void syncImport(pendingCloud.current) }}>重试同步</button>}
+          </div>}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -1,6 +1,7 @@
-import type { IncomingMessage, ServerResponse } from "node:http"
+import type { IncomingMessage } from "node:http"
 import type { Connect, Plugin } from "vite"
 import { questionsFromModel, safePageUrl, visionReading } from "../src/engine/extract.ts"
+import { readLimitedBody } from "./imports/http.js"
 
 const SYSTEM = [
   "你是 Testpass，负责 AI 考试通过助手。",
@@ -12,6 +13,24 @@ const SYSTEM = [
 ].join("")
 
 type SeniorBody = Record<string, unknown>
+interface JsonResponse {
+  statusCode: number
+  setHeader(name: string, value: string): unknown
+  end(body: string): unknown
+}
+
+export async function seniorFetch(request: Request, route: "senior" | "see" | "past", apiKey: string): Promise<Response> {
+  if (request.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405, headers: { Allow: "POST" } })
+  let result: Response | undefined
+  const headers = new Headers({ "cache-control": "no-store" })
+  const response: JsonResponse = {
+    statusCode: 200,
+    setHeader: (name, value) => headers.set(name, value),
+    end: (body) => { result = new Response(body, { status: response.statusCode, headers }) },
+  }
+  await (route === "senior" ? handle : route === "see" ? seeImage : findPast)(request, response, apiKey)
+  return result ?? Response.json({ error: "No response" }, { status: 502 })
+}
 
 export function seniorApi(apiKey: string): Plugin {
   const attach = (middlewares: Connect.Server) => {
@@ -49,7 +68,7 @@ export function seniorApi(apiKey: string): Plugin {
   }
 }
 
-async function handle(request: IncomingMessage, response: ServerResponse, apiKey: string) {
+async function handle(request: IncomingMessage | Request, response: JsonResponse, apiKey: string) {
   try {
     const body = await readJson(request)
     const prompt = promptFor(body)
@@ -120,7 +139,7 @@ function promptFor(body: SeniorBody): string | null {
   return null
 }
 
-async function seeImage(request: IncomingMessage, response: ServerResponse, apiKey: string) {
+async function seeImage(request: IncomingMessage | Request, response: JsonResponse, apiKey: string) {
   try {
     const body = await readJson(request, 8_000_000)
     const image = clip(body.image, 7_000_000)
@@ -149,7 +168,7 @@ async function seeImage(request: IncomingMessage, response: ServerResponse, apiK
   }
 }
 
-async function findPast(request: IncomingMessage, response: ServerResponse, apiKey: string) {
+async function findPast(request: IncomingMessage | Request, response: JsonResponse, apiKey: string) {
   try {
     const body = await readJson(request, 20_000)
     const exam = clip(body.exam, 40)
@@ -301,13 +320,19 @@ function clip(value: unknown, max: number): string {
     .slice(0, max)
 }
 
-function send(response: ServerResponse, status: number, body: unknown) {
+function send(response: JsonResponse, status: number, body: unknown) {
   response.statusCode = status
   response.setHeader("Content-Type", "application/json; charset=utf-8")
   response.end(JSON.stringify(body))
 }
 
-function readJson(request: IncomingMessage, limit = 20_000): Promise<SeniorBody> {
+function readJson(request: IncomingMessage | Request, limit = 20_000): Promise<SeniorBody> {
+  if (request instanceof Request) return readLimitedBody(request, limit).then((result) => {
+    if (!result.ok) throw new Error("too large")
+    const body: unknown = JSON.parse(new TextDecoder().decode(result.bytes))
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("invalid body")
+    return body as SeniorBody
+  })
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let size = 0

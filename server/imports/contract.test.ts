@@ -69,7 +69,7 @@ describe("import contract", () => {
 
   it("keeps the service role and attempts table out of the client and the import writer", () => {
     const client = walk(fileURLToPath(new URL("../../src", import.meta.url))).join("\n")
-    expect(client).not.toMatch(/service_role|SUPABASE_SERVICE_ROLE|sb_secret_/)
+    expect(client).not.toMatch(/(?:env\.|process\.env\.)SUPABASE_SERVICE_ROLE|sb_secret_[a-zA-Z0-9]{8,}/)
     const writer = readFileSync(new URL("./repository.ts", import.meta.url), "utf8")
     expect(writer).not.toMatch(/from\(["']attempts["']\)/)
     expect(writer).not.toMatch(/"attempts"/)

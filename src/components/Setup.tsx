@@ -7,6 +7,7 @@ import { useRecord } from "../lib/useRecord.tsx"
 import { cn } from "../lib/cn.ts"
 import { todayKey } from "../lib/day.ts"
 import { Button } from "./ui/button.tsx"
+import { SyncNotice } from "./SyncNotice.tsx"
 
 export default function Setup() {
   const { start, demo } = useRecord()
@@ -146,7 +147,8 @@ export default function Setup() {
           先看一份练过几天的记录
         </button>
       </div>
-      <p className="mt-16 text-xs leading-6 text-muted">记录留在这台浏览器里。换一台设备，需要重新说一次，或直接打开上面的演示记录。</p>
+      <SyncNotice />
+      <p className="mt-8 text-xs leading-6 text-muted">访客记录随当前浏览器的匿名身份保存。请保留浏览器数据；换设备需要重新开始。</p>
     </main>
   )
 }
