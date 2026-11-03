@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { PagingLab } from "./coach/PagingLab.tsx"
+import { syncAfterLocalChange } from "../algo/index.ts"
 import { deferToday, finishToday, scoreOf, seniorLine, shiftDate } from "../engine/agent.ts"
 import { examById, levelById, topicById } from "../engine/catalog.ts"
 import type { ReviewCard } from "../engine/types.ts"
@@ -209,14 +210,22 @@ export default function Today() {
             <button
               type="button"
               className="h-12 rounded-[2px] bg-seal px-6 text-sm text-paper hover:bg-[#742418]"
-              onClick={() => setState(finishToday(state))}
+              onClick={() => {
+                const next = finishToday(state)
+                setState(next)
+                syncAfterLocalChange(next)
+              }}
             >
               做完了
             </button>
             <button
               type="button"
               className="h-12 rounded-[2px] border border-line bg-transparent px-6 text-sm text-ink hover:border-seal"
-              onClick={() => setState(deferToday(state))}
+              onClick={() => {
+                const next = deferToday(state)
+                setState(next)
+                syncAfterLocalChange(next)
+              }}
             >
               今天做不动
             </button>

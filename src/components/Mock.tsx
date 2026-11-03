@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { syncAfterLocalChange } from "../algo/index.ts"
 import { gradePaper, letterOf, nextPaper, recordUpload } from "../engine/agent.ts"
 import { QUESTIONS, examById, topicById } from "../engine/catalog.ts"
 import type { GradeItem } from "../engine/types.ts"
@@ -158,6 +159,7 @@ function SitePaper() {
         }
         const graded = gradePaper(state, choices, todayKey())
         setState(graded.state)
+        syncAfterLocalChange(graded.state)
         setReview(graded.items)
         setError(null)
       }}
@@ -240,6 +242,7 @@ function UploadForm() {
           return
         }
         setState(result.state)
+        syncAfterLocalChange(result.state)
         setLine(result.line)
         setSpoken(null)
         setSpeaking(true)

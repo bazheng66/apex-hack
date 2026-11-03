@@ -1,21 +1,13 @@
 import { examById, initialMastery, levelById, QUESTIONS, topicById } from "./catalog.ts"
-import { abilityFromScore, applyAbility } from "./model.ts"
+import { abilityFromScore } from "./model.ts"
+import { planAssignment, scoreOf, shrinkDaily, weakestOf } from "./plan.ts"
+import { applyTopicAbility, clampScore, DRILL_DONE_DELTA, itemScoreDelta, uploadCountsAsHit, uploadScoreDelta } from "./score.ts"
 import type { Ability, Daily, GradeItem, Mastery, MistakeNote, Question, RecordState, ReviewCard, Session, SessionKind } from "./types.ts"
 
-export function scoreOf(mastery: Mastery[], topicId: string): number {
-  return mastery.find((item) => item.topicId === topicId)?.score ?? 0
-}
-
-export function clampScore(score: number): number {
-  return Math.max(8, Math.min(96, Math.round(score)))
-}
+export { clampScore, scoreOf }
 
 export function weakest(state: Pick<RecordState, "examId" | "mastery">) {
-  const topics = examById(state.examId).topics
-  return topics.reduce((best, topic) => {
-    const score = scoreOf(state.mastery, topic.id)
-    return score < best.score ? { topic, score } : best
-  }, { topic: topics[0]!, score: scoreOf(state.mastery, topics[0]!.id) })
+  return weakestOf(examById(state.examId).topics, state.mastery)
 }
 
 function session(
@@ -54,13 +46,6 @@ function abilityList(state: Pick<RecordState, "abilities" | "mastery">): Ability
   return source.map((item) => ({ ...item }))
 }
 
-function withAbility(abilities: Ability[], topicId: string, correct: boolean, fallbackScore: number): Ability[] {
-  const index = abilities.findIndex((item) => item.topicId === topicId)
-  const current = index >= 0 ? abilities[index]! : abilityFromScore(topicId, fallbackScore)
-  const next = applyAbility(current, correct, 1200)
-  if (index < 0) return [...abilities, next]
-  return abilities.map((item, itemIndex) => (itemIndex === index ? next : item))
-}
 
 function pushReview(cards: ReviewCard[], topicId: string, prompt: string, id: string, today: string): ReviewCard[] {
   if (cards.some((card) => card.topicId === topicId && card.prompt === prompt)) return cards
@@ -86,25 +71,12 @@ function skipCounted(state: Pick<RecordState, "sessions">, date: string): boolea
 }
 
 export function planDay(state: Pick<RecordState, "examId" | "mastery" | "skipStreak">, date: string): Daily {
-  const { topic, score } = weakest(state)
-  let minutes = 25
-  let ruleId: Daily["ruleId"] = "LOWEST_TOPIC"
-  let instruction = topic.drill
-  let reason = `${topic.name} 现在是 ${score}，是这场里最低的一块。今天不新开章节。`
-
-  if (state.skipStreak >= 2) {
-    minutes = 12
-    ruleId = "SKIP_SHRINK"
-    instruction = topic.minimum
-    reason = `专项已经连续放下 ${state.skipStreak} 次。今天只留 ${topic.name} 的最小一问，收到 12 分钟。`
-  } else if (state.skipStreak === 1) {
-    minutes = 18
-    ruleId = "SKIP_TRIM"
-    instruction = topic.minimum
-    reason = `昨天这件没有做完。今天仍是 ${topic.name}，收到 18 分钟，先做最小的一问。`
-  }
-
-  return { date, topicId: topic.id, minutes, instruction, reason, ruleId, status: "open" }
+  return planAssignment({
+    topics: examById(state.examId).topics,
+    mastery: state.mastery,
+    skipStreak: state.skipStreak,
+    date,
+  })
 }
 
 export function createProfile(examId: RecordState["examId"], level: RecordState["level"], today: string): RecordState {
@@ -225,7 +197,7 @@ export function progressReading(state: RecordState): string {
 export function finishToday(state: RecordState): RecordState {
   if (state.daily.status !== "open") return state
   const before = scoreOf(state.mastery, state.daily.topicId)
-  const after = clampScore(before + 4)
+  const after = clampScore(before + DRILL_DONE_DELTA)
   return {
     ...state,
     skipStreak: 0,
@@ -256,13 +228,7 @@ export function deferToday(state: RecordState): RecordState {
   return {
     ...state,
     skipStreak: state.skipStreak + 1,
-    daily: {
-      ...state.daily,
-      minutes: 12,
-      ruleId: "SKIP_SHRINK",
-      instruction: topic.minimum,
-      reason: `你说今天做不动。任务收到 12 分钟，还是${topic.name}，不换章节。`,
-    },
+    daily: shrinkDaily(state.daily, topic),
     sessions: [
       ...state.sessions,
       session(state.daily.date, "drill-shrink", state.daily.topicId, "今天做不动。专项收到 12 分钟。", before, before, "shrink"),
@@ -289,9 +255,9 @@ export function gradePaper(state: RecordState, choices: Record<string, number>, 
     const chosen = choices[question.id] ?? 0
     const correct = chosen === question.answer
     const before = scoreOf(mastery, question.topicId)
-    const after = clampScore(before + (correct ? 8 : -4))
+    const after = clampScore(before + itemScoreDelta(correct))
     mastery = withScore(mastery, question.topicId, after)
-    abilities = withAbility(abilities, question.topicId, correct, before)
+    abilities = applyTopicAbility(abilities, question.topicId, correct, before)
     const note = question.notes[chosen] ?? ""
     items.push({ questionId: question.id, topicId: question.topicId, chosen, correct, note, before, after })
     sessions.push(session(today, "mock", question.topicId, note, before, after, question.id))
@@ -335,15 +301,14 @@ export function recordUpload(
   }
   const topic = topicById(state.examId, input.topicId)
   const before = scoreOf(state.mastery, topic.id)
-  const ratio = input.correct / input.total
-  const delta = Math.round((ratio - 0.6) * 20)
+  const delta = uploadScoreDelta(input.correct, input.total)
   const after = clampScore(before + delta)
   const mistake = input.mistake.trim()
   const detail = mistake
     ? `自交模拟 ${input.correct}/${input.total}。错法：${mistake}`
     : `自交模拟 ${input.correct}/${input.total}。`
   const salt = state.sessions.length
-  const abilities = withAbility(abilityList(state), topic.id, ratio >= 0.6, before)
+  const abilities = applyTopicAbility(abilityList(state), topic.id, uploadCountsAsHit(input.correct, input.total), before)
   let cards = [...(state.cards ?? [])]
   let mistakes = [...(state.mistakes ?? [])]
   if (mistake) {

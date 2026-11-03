@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
+import { syncAfterLocalChange } from "../algo/index.ts"
 import { recordUpload, scoreOf } from "../engine/agent.ts"
 import { examById, topicById } from "../engine/catalog.ts"
 import { todayKey } from "../lib/day.ts"
@@ -169,6 +170,7 @@ export default function Talk() {
     }
     setError(null)
     setState(result.state)
+    syncAfterLocalChange(result.state)
     commit(itemsRef.current.map((item) => (item.id === message.id ? withStemRecorded(item, stem) : item)))
   }
 
