@@ -4,6 +4,13 @@
 
 完整题库以后可以收费。这一版每个考试只开放四道题，用来把错法和分数记实。
 
+作品定位、功能、算法规则、技术架构与已知边界见 [作品介绍](docs/PROJECT.md)。
+
+- 前端：React 19 · Vite 8 · TypeScript · Tailwind 4 · React Router 7
+- 数据：Supabase（匿名登录 + RLS + 事务化记录同步）
+- 服务端：Vercel Functions（DeepSeek 评语/识图/检索、题库导入 API v1）
+- 测试：160 个用例通过，含 PGlite 真实 PostgreSQL 迁移、RLS 跨用户隔离、版本冲突
+
 ## 本地运行
 
 ```bash
@@ -55,3 +62,7 @@ npm run build
 | `SKIP_SHRINK` | 当天说做不动，收到 12 分钟；再说一次，今天不再加任务 |
 
 站内做对 +8，做错 −4。自己交来的卷子按正确率相对 60% 增减，最高 96，最低 8。同一份记录再交一次，增减相同。
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。
