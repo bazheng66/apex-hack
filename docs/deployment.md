@@ -3,15 +3,17 @@
 已完成的发布步骤：
 
 - PR #6 已 squash 合并（`dcaff05`）；`codex/record-cloud-imports` 已 `rebase --onto origin/main 86b2556` 后推送，PR #7（`e0902f2`）合并进 `main`，默认分支现在包含同步、导入、项目介绍与 LICENSE。
-- 仍未部署到 Vercel，远端数据库仍未应用 `20261103130000_record_sync.sql`。
+- Vercel 项目 `bazheng66/testpass-ai` 已创建并发布到 Production；Framework 识别为 Vite，构建 `npm run build`，输出 `dist`。
+- 环境变量：`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`（Production/Preview/Development），`DEEPSEEK_API_KEY`（Production，sensitive）。
+- Deployment Protection 已关闭（此前默认 `all_except_custom_domains`，访客会被要求登录 Vercel）。
+- `supabase/migrations/20261103130000_record_sync.sql` 已在远端项目应用。用匿名 JWT 实测：`save_record_state` 返回新 revision，重放旧 revision 返回 `PT409`。
+- 自定义域名 `testpass.b1z.xyz` 已加入项目（`verified: true`），等待域名实名审核通过并添加 CNAME `cname.vercel-dns.com`。
 
 ## 剩余发布顺序
 
-1. 审阅并应用 `supabase/migrations/20261103130000_record_sync.sql`。2026-11-03 的只读检查返回 `42703`（`exams.record_revision` 不存在），`rpc/save_record_state` 返回 `404`。在已授权的 Supabase SQL Editor 执行这个新增迁移；不要重复执行旧的建表迁移。
-2. 配置 Vercel：Framework 为 Vite，安装 `npm ci`，构建 `npm run build`，输出目录 `dist`。仓库已有 `api/v1/*` 和 AI 函数入口；`vercel.json` 包含应用路由刷新回退。
-3. Preview 和 Production 均设置 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`。值取项目的 publishable 配置。客户端不接受服务端密钥。服务端导入也使用 publishable key 和调用者 JWT，经 RLS 写入。
-4. 可选设置服务端 `DEEPSEEK_API_KEY`；不要使用 `VITE_` 前缀。当前 LLM 适配器仍调用官方 DeepSeek 端点。若使用兼容服务，需要先确认并配置其 API 地址与模型，不能只替换密钥。没有密钥时，界面继续使用规则评语。
-5. 部署 Preview 并完成以下检查，通过后发布 Production。作品信息冻结时间为 2026-11-05 12:00（Asia/Shanghai）。比赛提交及测试 bot 尚未执行。
+1. 域名 `b1z.xyz` 在阿里云完成注册局实名审核后，添加 CNAME：主机记录 `testpass` → `cname.vercel-dns.com`，TTL 10 分钟。
+2. 域名生效后做生产验收（见下方「验证」第 4 条），通过即作为提交用的体验链接。
+3. 作品信息冻结时间为 2026-11-05 12:00（Asia/Shanghai）。
 
 ## 同步协议
 
