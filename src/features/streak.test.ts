@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { shiftDate } from "../engine/agent.ts"
-import { currentStreak, dayCounted, streakDays } from "./streak.ts"
+import { bestStreak, currentStreak, dayCounted, lastActiveDate, streakDays } from "./streak.ts"
 
 const today = "2026-11-03"
 
@@ -49,6 +49,27 @@ describe("currentStreak", () => {
     const sessions = [0, 1, 2].map((offset) => session(shiftDate(march, -offset), "mock"))
     expect(sessions.map((item) => item.date)).toEqual(["2026-03-01", "2026-02-28", "2026-02-27"])
     expect(currentStreak(sessions, march)).toBe(3)
+  })
+})
+
+describe("bestStreak", () => {
+  it("is zero with no counted day", () => {
+    expect(bestStreak([])).toBe(0)
+    expect(lastActiveDate([])).toBeNull()
+    expect(bestStreak([session(today, "drill-skip")])).toBe(0)
+  })
+
+  it("keeps the longest run even after it has ended", () => {
+    const sessions = [
+      session(shiftDate(today, -10), "drill-done"),
+      session(shiftDate(today, -9), "mock"),
+      session(shiftDate(today, -8), "upload"),
+      session(shiftDate(today, -8), "drill-done"),
+      session(shiftDate(today, -1), "drill-done"),
+    ]
+    expect(bestStreak(sessions)).toBe(3)
+    expect(currentStreak(sessions, today)).toBe(1)
+    expect(lastActiveDate(sessions)).toBe(shiftDate(today, -1))
   })
 })
 

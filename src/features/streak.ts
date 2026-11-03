@@ -27,6 +27,32 @@ export interface StreakDay {
   counted: boolean
 }
 
+function countedDates(sessions: Pick<Session, "date" | "kind">[]): string[] {
+  const dates = new Set<string>()
+  for (const session of sessions) {
+    if (COUNTED.has(session.kind)) dates.add(session.date)
+  }
+  return [...dates].sort()
+}
+
+export function lastActiveDate(sessions: Pick<Session, "date" | "kind">[]): string | null {
+  return countedDates(sessions).at(-1) ?? null
+}
+
+/** Longest run of counted days. Display only; it does not decide today's plan. */
+export function bestStreak(sessions: Pick<Session, "date" | "kind">[]): number {
+  const dates = countedDates(sessions)
+  let best = 0
+  let run = 0
+  let previous = ""
+  for (const date of dates) {
+    run = previous && shiftDate(previous, 1) === date ? run + 1 : 1
+    if (run > best) best = run
+    previous = date
+  }
+  return best
+}
+
 export function streakDays(sessions: Pick<Session, "date" | "kind">[], today: string): StreakDay[] {
   const days: StreakDay[] = []
   for (let offset = 6; offset >= 0; offset -= 1) {

@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
+import { Companion } from "./Companion.tsx"
 import { PagingLab } from "./coach/PagingLab.tsx"
-import { syncAfterLocalChange } from "../algo/index.ts"
+import { planDraft, syncAfterLocalChange } from "../algo/index.ts"
 import { deferToday, finishToday, scoreOf, seniorLine, shiftDate } from "../engine/agent.ts"
 import { examById, levelById, topicById } from "../engine/catalog.ts"
 import type { ReviewCard } from "../engine/types.ts"
+import { mockDailyPlan, mockStreak } from "../features/algo-display.ts"
+import { copyLine, presentHint } from "../features/companion.ts"
 import { forecastLine } from "../features/forecast.ts"
 import { reviewCard } from "../features/review.ts"
-import { currentStreak, streakDays } from "../features/streak.ts"
+import { streakDays } from "../features/streak.ts"
 import { cn } from "../lib/cn.ts"
 import { formatDay, todayKey } from "../lib/day.ts"
 import { askSenior } from "../lib/senior.ts"
@@ -24,6 +27,7 @@ function dueCard(cards: ReviewCard[] | undefined, topicId: string, today: string
 
 export default function Today() {
   const { state, setState } = useRecord()
+  const [params] = useSearchParams()
   const [spoken, setSpoken] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [goalDate, setGoalDate] = useState(() => shiftDate(todayKey(), 21))
@@ -66,8 +70,18 @@ export default function Today() {
   const topic = topicById(state.examId, topicId)
   const fallback = seniorLine(state)
   const line = spoken ?? fallback
-  const streak = currentStreak(state.sessions, today)
+  const plan = mockDailyPlan(record, today, planDraft(record.daily))
+  const streakView = mockStreak(record, today)
+  const shown = presentHint(plan.companion_hint, params.toString())
+  const streak = streakView.current
   const week = streakDays(state.sessions, today)
+  const streakNote = plan.copy_keys.find((key) => key === "streak_up" || key === "streak_broke")
+  const streakDetail =
+    streakView.current > 0
+      ? streakView.best > streakView.current
+        ? `连续 ${streakView.current} 天 · 最好 ${streakView.best} 天`
+        : `连续 ${streakView.current} 天`
+      : undefined
   const card = dueCard(state.cards, topicId, today)
   const outlook = forecastLine({
     mastery: state.mastery,
@@ -93,6 +107,7 @@ export default function Today() {
       <p className="mt-4 max-w-2xl text-xs leading-5 text-muted">
         {spoken ? "这句话由 Testpass 写成。分数和专项仍按规则。" : pending ? "分数已定。Testpass 在写这句话。" : "Testpass 暂时没写成，上面是按规则留下的话。"}
       </p>
+      <Companion hint={shown.hint} copyKeys={plan.copy_keys} detail={streakDetail} forced={shown.forced} />
 
       <dl className="mt-10 grid grid-cols-3 border border-line bg-card">
         <div className="min-w-0 px-3 py-5 sm:px-5">
@@ -110,8 +125,9 @@ export default function Today() {
           <dd className="mt-2 font-serif text-2xl leading-none text-ink tabular-nums">{score}</dd>
         </div>
       </dl>
-      <section data-coach="streak" className="mt-8">
+      <section data-coach="streak" data-companion-hint={shown.hint} className="mt-8">
         <p className="text-sm leading-7">{streak > 0 ? `已经连续 ${streak} 天` : "今天还没有记上"}</p>
+        {streakNote && <p className="mt-2 text-sm leading-7 text-muted">{copyLine(streakNote)}</p>}
         <ol className="mt-4 grid grid-cols-7 gap-2">
           {week.map((day) => (
             <li

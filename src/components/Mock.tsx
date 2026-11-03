@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { syncAfterLocalChange } from "../algo/index.ts"
 import { gradePaper, letterOf, nextPaper, recordUpload } from "../engine/agent.ts"
 import { QUESTIONS, examById, topicById } from "../engine/catalog.ts"
 import type { GradeItem } from "../engine/types.ts"
+import { forecastRange, mockSessionSubmit, submitSummary, type SessionSubmitView } from "../features/algo-display.ts"
+import { presentHint } from "../features/companion.ts"
 import { todayKey } from "../lib/day.ts"
 import { askSenior } from "../lib/senior.ts"
 import { useRecord } from "../lib/useRecord.tsx"
 import { cn } from "../lib/cn.ts"
+import { Companion } from "./Companion.tsx"
 
 export default function Mock() {
   const { state } = useRecord()
@@ -58,8 +61,10 @@ export default function Mock() {
 
 function SitePaper() {
   const { state, setState } = useRecord()
+  const [params] = useSearchParams()
   const [choices, setChoices] = useState<Record<string, number>>({})
   const [review, setReview] = useState<GradeItem[] | null>(null)
+  const [feedback, setFeedback] = useState<SessionSubmitView | null>(null)
   const [comment, setComment] = useState<string | null>(null)
   const [commenting, setCommenting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +104,8 @@ function SitePaper() {
   if (review) {
     return (
       <div>
-        <p className="mb-6 max-w-2xl rounded-[2px] border-y border-r border-l-2 border-y-line border-r-line border-l-seal bg-card px-5 py-4 text-sm leading-7">
+        {feedback && <SubmitCompanion view={feedback} search={params.toString()} />}
+        <p className="mt-6 mb-6 max-w-2xl rounded-[2px] border-y border-r border-l-2 border-y-line border-r-line border-l-seal bg-card px-5 py-4 text-sm leading-7">
           {comment ?? (commenting ? "分数已经记下。Testpass 在看这套题。" : "Testpass 暂时没写成。每题下面仍是规则给出的说明。")}
         </p>
         <ol className="space-y-4">
@@ -132,6 +138,7 @@ function SitePaper() {
           onClick={() => {
             setReview(null)
             setComment(null)
+            setFeedback(null)
             setChoices({})
           }}
         >
@@ -157,10 +164,22 @@ function SitePaper() {
           setError("每一题都要选。选完再交，交了才会计分。")
           return
         }
-        const graded = gradePaper(state, choices, todayKey())
+        const today = todayKey()
+        const graded = gradePaper(state, choices, today)
         setState(graded.state)
         syncAfterLocalChange(graded.state)
         setReview(graded.items)
+        setFeedback(
+          mockSessionSubmit({
+            before: state,
+            after: graded.state,
+            today,
+            sessionId: graded.state.sessions.at(-1)?.id ?? "local",
+            correctN: graded.items.filter((item) => item.correct).length,
+            totalN: graded.items.length,
+            deltas: graded.items,
+          }),
+        )
         setError(null)
       }}
     >
@@ -213,11 +232,13 @@ function SitePaper() {
 
 function UploadForm() {
   const { state, setState } = useRecord()
+  const [params] = useSearchParams()
   const [topicId, setTopicId] = useState(state?.daily.topicId ?? "")
   const [correct, setCorrect] = useState("3")
   const [total, setTotal] = useState("5")
   const [mistake, setMistake] = useState("")
   const [line, setLine] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<SessionSubmitView | null>(null)
   const [spoken, setSpoken] = useState<string | null>(null)
   const [speaking, setSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -239,11 +260,26 @@ function UploadForm() {
         if (!result.ok) {
           setError(result.message)
           setLine(null)
+          setFeedback(null)
           return
         }
+        const today = todayKey()
+        const beforeScore = state.mastery.find((item) => item.topicId === topicId)?.score ?? 0
+        const afterScore = result.state.mastery.find((item) => item.topicId === topicId)?.score ?? beforeScore
         setState(result.state)
         syncAfterLocalChange(result.state)
         setLine(result.line)
+        setFeedback(
+          mockSessionSubmit({
+            before: state,
+            after: result.state,
+            today,
+            sessionId: result.state.sessions.at(-1)?.id ?? "local",
+            correctN: Number(correct),
+            totalN: Number(total),
+            deltas: [{ topicId, before: beforeScore, after: afterScore }],
+          }),
+        )
         setSpoken(null)
         setSpeaking(true)
         setError(null)
@@ -314,6 +350,7 @@ function UploadForm() {
           {error}
         </p>
       )}
+      {feedback && <SubmitCompanion view={feedback} search={params.toString()} />}
       {line && <p className="mt-4 text-sm leading-7 text-muted">{line}</p>}
       {speaking && <p className="mt-3 text-xs text-muted">分数已经记下。Testpass 在看你写的错法。</p>}
       {spoken && <p className="mt-3 text-sm leading-7">{spoken}</p>}
@@ -321,5 +358,16 @@ function UploadForm() {
         记入实力
       </button>
     </form>
+  )
+}
+
+function SubmitCompanion({ view, search }: { view: SessionSubmitView; search: string }) {
+  const shown = presentHint(view.companion_hint, search)
+  const range = forecastRange(view.pass_forecast)
+  return (
+    <>
+      <Companion hint={shown.hint} copyKeys={view.copy_keys} detail={submitSummary(view)} forced={shown.forced} />
+      {range && <p className="mt-3 text-sm leading-7 text-muted">{range}</p>}
+    </>
   )
 }

@@ -74,6 +74,147 @@ textarea {
   background: color-mix(in srgb, var(--color-ink) 24%, var(--color-line));
 }
 
+.companion-mark {
+  overflow: visible;
+}
+
+.companion-figure,
+.companion-head {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.companion-spark {
+  opacity: 0;
+}
+
+.companion-eyes-shut {
+  display: none;
+}
+
+.companion-mark[data-hint="encourage"] .companion-figure {
+  animation: companion-breathe 3.6s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="encourage"] .companion-head {
+  animation: companion-nod 3.6s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="urge"] .companion-head {
+  animation: companion-nod 0.95s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="urge"] .companion-seal {
+  animation: companion-pulse 0.95s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="celebrate"] .companion-figure {
+  animation: companion-lift 1.6s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="celebrate"] .companion-shadow {
+  animation: companion-shadow 1.6s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="celebrate"] .companion-spark {
+  animation: companion-spark 1.6s ease-out infinite;
+}
+
+.companion-mark[data-hint="celebrate"] .companion-spark-b {
+  animation-delay: 0.18s;
+}
+
+.companion-mark[data-hint="celebrate"] .companion-spark-c {
+  animation-delay: 0.36s;
+}
+
+.companion-mark[data-hint="sleepy"] .companion-figure {
+  opacity: 0.72;
+  animation: companion-breathe 5.6s ease-in-out infinite;
+}
+
+.companion-mark[data-hint="sleepy"] .companion-head {
+  transform: rotate(12deg);
+}
+
+.companion-mark[data-hint="sleepy"] .companion-eyes-open {
+  display: none;
+}
+
+.companion-mark[data-hint="sleepy"] .companion-eyes-shut {
+  display: block;
+}
+
+@keyframes companion-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+
+@keyframes companion-nod {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  40% {
+    transform: rotate(9deg);
+  }
+  70% {
+    transform: rotate(-2deg);
+  }
+}
+
+@keyframes companion-lift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-4px);
+  }
+  55% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes companion-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes companion-spark {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  30% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes companion-shadow {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  35% {
+    opacity: 0.04;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
