@@ -1,15 +1,17 @@
-# Testpass 发布交接（2026-11-03）
+# Testpass 发布交接（2026-11-03 更新）
 
-本分支基于 PR #6 的 `86b2556`；#6 尚未合并。GitHub 插件合并/创建分支均返回 403，本机 git 推送连接失败。未发布到 Vercel，未修改远端数据库。
+已完成的发布步骤：
 
-## 发布顺序
+- PR #6 已 squash 合并（`dcaff05`）；`codex/record-cloud-imports` 已 `rebase --onto origin/main 86b2556` 后推送，PR #7（`e0902f2`）合并进 `main`，默认分支现在包含同步、导入、项目介绍与 LICENSE。
+- 仍未部署到 Vercel，远端数据库仍未应用 `20261103130000_record_sync.sql`。
 
-1. Squash 合并 PR #6。本分支在其后执行 `git fetch origin`，再执行 `git rebase --onto origin/main 86b2556 codex/record-cloud-imports`，避免重复引入 #6。
-2. 审阅并应用 `supabase/migrations/20261103130000_record_sync.sql`。2026-11-03 的只读检查返回 `42703`，远端尚无 `record_revision` 列。可在已授权的 Supabase SQL Editor 执行这个新增迁移；不要重复执行旧的建表迁移。
-3. 配置 Vercel：Framework 为 Vite，安装 `npm ci`，构建 `npm run build`，输出目录 `dist`。仓库已有 `api/v1/*` 和 AI 函数入口；`vercel.json` 包含应用路由刷新回退。
-4. Preview 和 Production 均设置 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`。值取项目的 publishable 配置。客户端不接受服务端密钥。服务端导入也使用 publishable key 和调用者 JWT，经 RLS 写入。
-5. 可选设置服务端 `DEEPSEEK_API_KEY`；不要使用 `VITE_` 前缀。当前 LLM 适配器仍调用官方 DeepSeek 端点。若使用兼容服务，需要先确认并配置其 API 地址与模型，不能只替换密钥。没有密钥时，界面继续使用规则评语。
-6. 部署 Preview 并完成以下检查，通过后发布 Production。作品信息冻结时间为 2026-11-05 12:00（Asia/Shanghai）。比赛提交及测试 bot 尚未执行。
+## 剩余发布顺序
+
+1. 审阅并应用 `supabase/migrations/20261103130000_record_sync.sql`。2026-11-03 的只读检查返回 `42703`（`exams.record_revision` 不存在），`rpc/save_record_state` 返回 `404`。在已授权的 Supabase SQL Editor 执行这个新增迁移；不要重复执行旧的建表迁移。
+2. 配置 Vercel：Framework 为 Vite，安装 `npm ci`，构建 `npm run build`，输出目录 `dist`。仓库已有 `api/v1/*` 和 AI 函数入口；`vercel.json` 包含应用路由刷新回退。
+3. Preview 和 Production 均设置 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`。值取项目的 publishable 配置。客户端不接受服务端密钥。服务端导入也使用 publishable key 和调用者 JWT，经 RLS 写入。
+4. 可选设置服务端 `DEEPSEEK_API_KEY`；不要使用 `VITE_` 前缀。当前 LLM 适配器仍调用官方 DeepSeek 端点。若使用兼容服务，需要先确认并配置其 API 地址与模型，不能只替换密钥。没有密钥时，界面继续使用规则评语。
+5. 部署 Preview 并完成以下检查，通过后发布 Production。作品信息冻结时间为 2026-11-05 12:00（Asia/Shanghai）。比赛提交及测试 bot 尚未执行。
 
 ## 同步协议
 
