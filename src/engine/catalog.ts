@@ -372,9 +372,13 @@ export function questionById(id: string): Question {
   return found
 }
 
+export function scoresForLevel(level: LevelId): readonly number[] {
+  return LEVEL_SCORES[level]
+}
+
 export function initialMastery(examId: ExamId, level: LevelId) {
   const exam = examById(examId)
-  const scores = LEVEL_SCORES[level]
+  const scores = scoresForLevel(level)
   return exam.topics.map((topic, index) => ({
     topicId: topic.id,
     score: scores[index] ?? scores[scores.length - 1] ?? 40,
