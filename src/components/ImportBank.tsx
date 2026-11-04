@@ -37,6 +37,7 @@ export default function ImportBank({
   const pendingCloud = useRef<CloudImportInput | null>(null)
   const [url, setUrl] = useState("")
   const [mode, setMode] = useState<Mode>("public")
+  const [manual, setManual] = useState(false)
   const [phase, setPhase] = useState<Phase>("idle")
   const [segment, setSegment] = useState<Segment>("paste")
   const [paste, setPaste] = useState("")
@@ -107,8 +108,9 @@ export default function ImportBank({
     if (doneKind !== "url") resetOutcome()
   }
 
-  function openGated() {
+  function openGated(manualEntry = false) {
     setMode("gated")
+    setManual(manualEntry)
     if (doneKind === "url") resetOutcome()
   }
 
@@ -248,7 +250,7 @@ export default function ImportBank({
         >
           <div className="flex items-start justify-between gap-4">
             <Dialog.Title className="font-serif text-2xl font-semibold leading-snug text-ink">
-              {mode === "gated" ? IMPORT_COPY.gatedTitle : IMPORT_COPY.title}
+              {mode === "gated" ? (manual ? "粘贴或上传题目" : IMPORT_COPY.gatedTitle) : IMPORT_COPY.title}
             </Dialog.Title>
             <Dialog.Close className="shrink-0 py-1 text-xs text-muted hover:text-seal">{IMPORT_COPY.close}</Dialog.Close>
           </div>
@@ -274,13 +276,23 @@ export default function ImportBank({
                   {IMPORT_COPY.start}
                 </Button>
               </form>
+              <p className="mt-3 text-xs leading-6 text-muted">
+                不想贴链接？
+                <button
+                  type="button"
+                  className="ml-1 text-ink underline decoration-line underline-offset-4 hover:decoration-seal"
+                  onClick={() => openGated(true)}
+                >
+                  直接粘贴题目或上传文件
+                </button>
+              </p>
               <div aria-live="polite" className="mt-4">
                 {reading && <p className="text-sm leading-7 text-muted">{IMPORT_COPY.reading}</p>}
                 {phase === "miss" && notice && <p className="text-sm leading-7 text-ink">{notice}</p>}
                 {phase === "miss" && !notice && (
                   <p className="text-sm leading-7 text-ink">
                     {IMPORT_COPY.missBefore}
-                    <button type="button" className="text-ink underline decoration-line underline-offset-4 hover:decoration-seal" onClick={openGated}>
+                    <button type="button" className="text-ink underline decoration-line underline-offset-4 hover:decoration-seal" onClick={() => openGated(false)}>
                       {IMPORT_COPY.missLink}
                     </button>
                     {IMPORT_COPY.missAfter}
@@ -297,12 +309,16 @@ export default function ImportBank({
             </>
           ) : (
             <>
-              <Dialog.Description className="mt-3 text-sm leading-7 text-ink">{IMPORT_COPY.gatedLead}</Dialog.Description>
-              {url.trim() && <p className="mt-2 break-all text-xs leading-6 text-muted">{url.trim()}</p>}
-              <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-7 text-ink">
-                <li>{IMPORT_COPY.step1}</li>
-                <li className="text-muted">{IMPORT_COPY.step2}</li>
-              </ol>
+              <Dialog.Description className="mt-3 text-sm leading-7 text-ink">
+                {manual ? "把题目粘贴进来，或上传 JSON / CSV / Markdown。只收录你给出的内容，不补写选项和答案。" : IMPORT_COPY.gatedLead}
+              </Dialog.Description>
+              {!manual && url.trim() && <p className="mt-2 break-all text-xs leading-6 text-muted">{url.trim()}</p>}
+              {!manual && (
+                <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-7 text-ink">
+                  <li>{IMPORT_COPY.step1}</li>
+                  <li className="text-muted">{IMPORT_COPY.step2}</li>
+                </ol>
+              )}
 
               <div className="mt-5 grid grid-cols-2 border border-line" role="tablist" aria-label="导入方式">
                 <button
