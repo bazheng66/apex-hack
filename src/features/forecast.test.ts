@@ -4,7 +4,7 @@ import { forecastLine, projectProgress } from "./forecast.ts"
 const mastery = [{ score: 40 }, { score: 80 }]
 
 describe("projectProgress", () => {
-  it("averages mastery, means daily score deltas, and clamps the projection", () => {
+  it("averages mastery, means daily score deltas, and caps how far the pace carries", () => {
     const projection = projectProgress({
       mastery,
       sessions: [
@@ -20,11 +20,11 @@ describe("projectProgress", () => {
     expect(projection.weakest).toBe(40)
     expect(projection.velocity).toBe(4)
     expect(projection.daysLeft).toBe(10)
-    expect(projection.projected).toBe(96)
-    expect(projection.onTrack).toBe(true)
+    expect(projection.projected).toBe(80)
+    expect(projection.onTrack).toBe(false)
   })
 
-  it("is not on track when the clamped projection misses the target", () => {
+  it("is not on track when the capped projection misses the target", () => {
     const projection = projectProgress({
       mastery,
       sessions: [{ date: "2026-11-01", scoreBefore: 40, scoreAfter: 44 }],
@@ -32,7 +32,7 @@ describe("projectProgress", () => {
       examDate: "2026-11-13",
       target: 97,
     })
-    expect(projection.projected).toBe(96)
+    expect(projection.projected).toBe(80)
     expect(projection.onTrack).toBe(false)
   })
 

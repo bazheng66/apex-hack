@@ -77,7 +77,9 @@ export function projectProgress(input: ProgressInput): ProgressProjection {
   const daily = [...byDate.values()]
   const velocity = daily.length === 0 ? 0 : daily.reduce((sum, value) => sum + value, 0) / daily.length
   const daysLeft = daysUntil(input.today, input.examDate)
-  const projected = clampScore(Math.round(average + velocity * daysLeft))
+  // A straight line over three weeks is not a forecast; cap how far the recent pace can carry.
+  const delta = Math.max(-20, Math.min(20, velocity * daysLeft))
+  const projected = clampScore(Math.round(average + delta))
   const spread = spreadFor(daily.length)
   return {
     average,
