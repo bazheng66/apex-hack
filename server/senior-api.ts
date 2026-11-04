@@ -80,7 +80,8 @@ async function handle(request: IncomingMessage | Request, response: JsonResponse
       send(response, 503, { error: "未配置密钥" })
       return
     }
-    const line = await complete(apiKey, prompt)
+    const raw = await complete(apiKey, prompt)
+    const line = clip(body.kind, 20) === "today" ? tighten(raw) : raw
     send(response, 200, { line })
   } catch {
     send(response, 502, { error: "Testpass 暂时没有写成" })
@@ -92,6 +93,8 @@ function promptFor(body: SeniorBody): string | null {
   if (kind === "today") {
     return [
       "写今天对这位同学说的话。",
+      "只写一句 20 到 34 个字的话：今天做什么、为什么是它。",
+      "不要解释，不要提材料不足，不要分点，不要复述任务原文。",
       `考试：${clip(body.exam, 40)}`,
       `水平：${clip(body.levelVoice, 80)}`,
       `专项：${clip(body.topic, 40)}，当前 ${clip(body.score, 8)}`,
@@ -318,6 +321,16 @@ function clip(value: unknown, max: number): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max)
+}
+
+/** The daily line is the page headline: keep one sentence, short enough to sit in two lines. */
+function tighten(line: string): string {
+  const first = line.split(/[。！？\n]/)[0]?.trim() ?? line
+  if (first.length <= 46) return `${first.replace(/[，,：:；;]$/, "")}。`
+  const head = first.slice(0, 46)
+  const cut = Math.max(head.lastIndexOf("，"), head.lastIndexOf("："), head.lastIndexOf("；"))
+  const kept = cut >= 22 ? head.slice(0, cut) : head
+  return `${kept.replace(/[，,：:；;]$/, "")}。`
 }
 
 function send(response: JsonResponse, status: number, body: unknown) {
