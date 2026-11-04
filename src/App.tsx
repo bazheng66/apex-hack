@@ -4,14 +4,16 @@ import Mock from "./components/Mock.tsx"
 import Progress from "./components/Progress.tsx"
 import Setup from "./components/Setup.tsx"
 import Shell from "./components/Shell.tsx"
+import SwitchSubject from "./components/SwitchSubject.tsx"
 import Talk from "./components/Talk.tsx"
 import Today from "./components/Today.tsx"
+import Welcome from "./components/Welcome.tsx"
 import { RecordProvider, useRecord } from "./lib/useRecord.tsx"
 
 function Home() {
   const { state } = useRecord()
   if (state) return <Navigate to="/today" replace />
-  return <Setup />
+  return <Welcome />
 }
 
 function Workspace() {
@@ -44,11 +46,13 @@ export default function App() {
           <Route path="/" element={<Home />} />
           {/* Reachable without a record: a new device signs in here before it has one. */}
           <Route path="/account" element={<Account />} />
+          <Route path="/start" element={<Setup />} />
           <Route element={<Workspace />}>
             <Route path="/today" element={<Today />} />
             <Route path="/talk" element={<Talk />} />
             <Route path="/mock" element={<Mock />} />
             <Route path="/progress" element={<Progress />} />
+            <Route path="/switch" element={<SwitchSubject />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -99,9 +99,29 @@ export default function Today() {
     })
   }
 
+  const daysLeft =
+    record.goal && /^\d{4}-\d{2}-\d{2}$/.test(record.goal.examDate)
+      ? Math.max(0, Math.round((Date.parse(`${record.goal.examDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000))
+      : null
+
   return (
     <article>
-      <p className="text-[11px] tracking-[0.22em] text-muted">{formatDay(state.daily.date)}</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line pb-3 text-xs text-muted">
+        <span className="text-ink">{examById(state.examId).name}</span>
+        <span aria-hidden="true">·</span>
+        <span>{levelById(state.level).name}</span>
+        {daysLeft !== null && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>距考试 {daysLeft} 天</span>
+          </>
+        )}
+        <Link to="/switch" className="ml-auto text-muted underline decoration-line underline-offset-4 hover:text-seal">
+          切换科目
+        </Link>
+      </div>
+
+      <p className="mt-4 text-[11px] tracking-[0.22em] text-muted">{formatDay(state.daily.date)}</p>
       <h1 className="mt-5 max-w-2xl text-balance font-serif text-3xl font-semibold leading-snug text-ink sm:text-4xl sm:leading-tight">
         {line}
       </h1>

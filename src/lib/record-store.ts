@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { RecordState } from "../engine/types.ts"
+import type { ExamId, RecordState } from "../engine/types.ts"
 import { rollTo } from "../engine/agent.ts"
 import { ensureCloudExam, findCloudRecord, mergeCloudRecord, RecordConflict, saveCloudRecord, type CloudRecord } from "./cloud-record.ts"
 import { todayKey } from "./day.ts"
@@ -91,8 +91,32 @@ export class RecordStore {
     try { this.cache() } catch { this.emit({ status: "error", error: "浏览器缓存不可用，请保持页面打开并重试。" }) }
     void this.flush()
   }
-  retry = async () => {
-    if (!this.userId) return
+  /** Load another subject's saved record. Returns false when that subject has none yet. */
+  openExam = async (examId: ExamId): Promise<boolean> => {
+    if (!this.client || !this.userId) return false
+    await this.flush()
+    const remote = await findCloudRecord(this.client, this.userId, examId)
+    if (!remote?.state) return false
+    ++this.generation
+    this.cloud = remote
+    this.dirty = false
+    const state = rollTo(remote.state, todayKey())
+    this.emit({ state, status: "synced", error: null, cloudExamId: remote.id })
+    this.cache()
+    return true
+  }
+
+  /** Which subjects already have a cloud snapshot. */
+  examsWithRecords = async (): Promise<ExamId[]> => {
+    if (!this.client || !this.userId) return []
+    const { data, error } = await this.client.from("exams").select("slug,record_state").eq("user_id", this.userId)
+    if (error) return []
+    return (data ?? [])
+      .filter((row) => row.record_state && typeof row.slug === "string")
+      .map((row) => row.slug as ExamId)
+  }
+
+  retry = async () => {    if (!this.userId) return
     if (!this.view.state) { this.initialized = false; await this.connect(this.userId) }
     else { this.dirty = true; await this.flush() }
   }

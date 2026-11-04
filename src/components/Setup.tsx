@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { shiftDate } from "../engine/agent.ts"
 import { EXAMS, LEVELS } from "../engine/catalog.ts"
 import type { ExamId, Goal, LevelId, PaperDifficulty, PaperProfile } from "../engine/types.ts"
@@ -9,10 +9,10 @@ import { todayKey } from "../lib/day.ts"
 import { Button } from "./ui/button.tsx"
 import { SyncNotice } from "./SyncNotice.tsx"
 
-const DIFFICULTIES: { id: PaperDifficulty; label: string; hint: string }[] = [
-  { id: "easy", label: "偏易", hint: "基础题多，计算量小" },
-  { id: "normal", label: "正常", hint: "和往年差不多" },
-  { id: "hard", label: "偏难", hint: "综合题多，容易拉开分" },
+const DIFFICULTIES: { id: PaperDifficulty; label: string }[] = [
+  { id: "easy", label: "偏易" },
+  { id: "normal", label: "正常" },
+  { id: "hard", label: "偏难" },
 ]
 
 function equalShares(examId: ExamId): Record<string, number> {
@@ -24,13 +24,34 @@ function equalShares(examId: ExamId): Record<string, number> {
 export default function Setup() {
   const { start, demo } = useRecord()
   const navigate = useNavigate()
-  const [examId, setExamId] = useState<ExamId>("os")
+  const [params] = useSearchParams()
+  const preset = params.get("exam") as ExamId | null
+
+  const [step, setStep] = useState(0)
+  const [examId, setExamId] = useState<ExamId>(preset && EXAMS.some((exam) => exam.id === preset) ? preset : "os")
   const [level, setLevel] = useState<LevelId>("uneven")
   const [examDate, setExamDate] = useState(() => shiftDate(todayKey(), 21))
   const [target, setTarget] = useState("80")
+  const [paperOpen, setPaperOpen] = useState(false)
   const [questions, setQuestions] = useState("30")
   const [difficulty, setDifficulty] = useState<PaperDifficulty>("normal")
-  const [shares, setShares] = useState<Record<string, number>>(() => equalShares("os"))
+  const [shares, setShares] = useState<Record<string, number>>(() => equalShares(examId))
+
+  const topics = EXAMS.find((exam) => exam.id === examId)?.topics ?? []
+
+  useEffect(() => {
+    setShares(equalShares(examId))
+  }, [examId])
+
+  function pickExam(id: ExamId) {
+    setExamId(id)
+    setStep(1)
+  }
+
+  function pickLevel(id: LevelId) {
+    setLevel(id)
+    setStep(2)
+  }
 
   function goalFromForm(): Goal {
     const parsed = Number(target)
@@ -41,8 +62,8 @@ export default function Setup() {
     }
   }
 
-  function paperFromForm(): PaperProfile {
-    const topics = EXAMS.find((exam) => exam.id === examId)?.topics ?? []
+  function paperFromForm(): PaperProfile | null {
+    if (!paperOpen) return null
     const parsed = Number(questions)
     return {
       questions: Number.isFinite(parsed) ? Math.min(120, Math.max(5, Math.round(parsed))) : 30,
@@ -51,200 +72,195 @@ export default function Setup() {
     }
   }
 
-  const topics = EXAMS.find((exam) => exam.id === examId)?.topics ?? []
-
   return (
     <main className="sheet mx-auto min-h-svh max-w-xl px-5 py-14 sm:px-6 sm:py-24">
-      <p className="text-[11px] tracking-[0.28em] text-muted">第一次进入</p>
-      <div className="mt-5 flex items-start gap-4">
-        <span
-          aria-hidden="true"
-          className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-[2px] bg-seal font-serif text-xl font-semibold leading-none text-paper shadow-[inset_0_0_0_1px_rgba(243,236,223,0.55)]"
-        >
-          T
-        </span>
-        <h1 className="min-w-0 font-serif text-4xl font-bold leading-none tracking-tight text-ink sm:text-6xl">
-          Testpass
-          <span className="mt-3 block text-xl font-semibold tracking-wide text-ink sm:text-2xl">个性化 AI 考试通过助手</span>
-        </h1>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] tracking-[0.28em] text-muted">第一次进入</p>
+        <p className="text-[11px] tracking-[0.28em] text-muted">{`${step + 1} / 3`}</p>
       </div>
-      <p className="mt-6 text-sm leading-7 text-ink/80">
-        告诉我你要应对的考试，以及你现在的水平。我按这个督促每天的专项，并记下你后来交来的模拟。
-      </p>
 
-      <fieldset className="mt-12">
-        <legend className="text-[11px] tracking-[0.18em] text-muted">准备哪一场</legend>
-        <div className="mt-3 border-t border-line">
-          {EXAMS.map((exam) => {
-            const on = examId === exam.id
-            return (
+      <div className="mt-4 flex gap-1.5" aria-hidden="true">
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className={cn("h-[3px] flex-1 rounded-[2px]", index <= step ? "bg-seal" : "bg-line")}
+          />
+        ))}
+      </div>
+
+      {step === 0 && (
+        <section className="mt-12">
+          <h1 className="font-serif text-4xl font-bold leading-tight text-ink sm:text-5xl">你在准备哪场考试？</h1>
+          <p className="mt-4 text-sm leading-7 text-muted">先选一场。之后每天只安排这场里最弱的那一块。</p>
+          <div className="mt-10 border-t border-line">
+            {EXAMS.map((exam) => (
               <button
                 key={exam.id}
                 type="button"
-                aria-pressed={on}
-                onClick={() => {
-                  setExamId(exam.id)
-                  setShares(equalShares(exam.id))
-                }}
-                className={cn(
-                  "flex w-full items-center gap-4 border-b border-l-2 border-b-line py-4 pr-2 pl-3 text-left",
-                  on ? "border-l-seal bg-card" : "border-l-transparent",
-                )}
+                onClick={() => pickExam(exam.id)}
+                className="flex w-full items-center gap-4 border-b border-l-2 border-b-line border-l-transparent py-5 pr-2 pl-3 text-left hover:border-l-seal hover:bg-card"
               >
-                <Dot on={on} />
-                <span className={cn("text-sm", on ? "text-ink" : "text-muted")}>{exam.name}</span>
+                <span className="h-2 w-2 shrink-0 border border-line" />
+                <span className="text-base text-ink">{exam.name}</span>
+                <span className="ml-auto text-xs text-muted">{exam.topics.length} 个专项</span>
               </button>
-            )
-          })}
-        </div>
-      </fieldset>
+            ))}
+          </div>
 
-      <fieldset className="mt-10">
-        <legend className="text-[11px] tracking-[0.18em] text-muted">现在的水平</legend>
-        <div className="mt-3 border-t border-line">
-          {LEVELS.map((item) => {
-            const on = level === item.id
-            return (
+          <div className="mt-10 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                demo()
+                navigate("/today")
+              }}
+              className="inline-flex h-12 items-center justify-center rounded-[2px] border border-line text-sm text-ink hover:border-seal"
+            >
+              先看一份练过几天的记录
+            </button>
+            <button type="button" onClick={() => navigate("/account")} className="text-xs text-muted hover:text-seal">
+              我有账号，去登录
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === 1 && (
+        <section className="mt-12">
+          <button type="button" onClick={() => setStep(0)} className="text-xs text-muted hover:text-seal">
+            ← 换一场考试
+          </button>
+          <h1 className="mt-6 font-serif text-4xl font-bold leading-tight text-ink sm:text-5xl">现在大概什么水平？</h1>
+          <p className="mt-4 text-sm leading-7 text-muted">选最接近的一个。它决定第一天给你多少任务。</p>
+          <div className="mt-10 border-t border-line">
+            {LEVELS.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                aria-pressed={on}
-                onClick={() => setLevel(item.id)}
-                className={cn(
-                  "flex w-full items-start gap-4 border-b border-l-2 border-b-line py-4 pr-2 pl-3 text-left",
-                  on ? "border-l-seal bg-card" : "border-l-transparent",
-                )}
+                onClick={() => pickLevel(item.id)}
+                className="flex w-full items-start gap-4 border-b border-l-2 border-b-line border-l-transparent py-5 pr-2 pl-3 text-left hover:border-l-seal hover:bg-card"
               >
-                <Dot on={on} />
+                <span className="mt-1.5 h-2 w-2 shrink-0 border border-line" />
                 <span>
-                  <span className={cn("block text-sm", on ? "text-ink" : "text-muted")}>{item.name}</span>
+                  <span className="block text-base text-ink">{item.name}</span>
                   <span className="mt-1 block text-sm leading-6 text-muted">{item.detail}</span>
                 </span>
               </button>
-            )
-          })}
-        </div>
-      </fieldset>
-
-      <fieldset className="mt-10">
-        <legend className="text-[11px] tracking-[0.18em] text-muted">想考到哪</legend>
-        <div className="mt-3 grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-xs text-muted">考试日期</span>
-            <input
-              type="date"
-              value={examDate}
-              onChange={(event) => setExamDate(event.target.value)}
-              className="mt-2 block w-full rounded-[2px] border border-line bg-card px-3 py-3 text-sm text-ink outline-none focus:border-seal"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-muted">目标分</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={60}
-              max={96}
-              step={1}
-              value={target}
-              onChange={(event) => setTarget(event.target.value)}
-              className="mt-2 block w-full rounded-[2px] border border-line bg-card px-3 py-3 text-sm text-ink outline-none focus:border-seal"
-            />
-          </label>
-        </div>
-        <p className="mt-3 text-sm leading-6 text-muted">默认 21 天后，目标 80。范围 60 到 96。</p>
-      </fieldset>
-
-      <fieldset className="mt-10">
-        <legend className="text-[11px] tracking-[0.18em] text-muted">这场卷子长什么样</legend>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          填了它，预测会按这张卷子的结构和难度算，而不是拿平均分硬套。不知道就按默认的 30 题、正常难度。
-        </p>
-        <div className="mt-4 grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-xs text-muted">总题量</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={5}
-              max={120}
-              step={1}
-              value={questions}
-              onChange={(event) => setQuestions(event.target.value)}
-              className="mt-2 block w-full rounded-[2px] border border-line bg-card px-3 py-3 text-sm text-ink tabular-nums outline-none focus:border-seal"
-            />
-          </label>
-          <div>
-            <span className="text-xs text-muted">难度</span>
-            <div className="mt-2 flex gap-1">
-              {DIFFICULTIES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={difficulty === item.id}
-                  title={item.hint}
-                  onClick={() => setDifficulty(item.id)}
-                  className={cn(
-                    "h-12 flex-1 rounded-[2px] border text-sm",
-                    difficulty === item.id ? "border-seal bg-seal text-paper" : "border-line text-muted hover:border-seal",
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
-        </div>
+        </section>
+      )}
 
-        <p className="mt-6 text-xs tracking-[0.16em] text-muted">各章占比（按百分比填，加起来不必等于 100）</p>
-        <div className="mt-3 grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
-          {topics.map((topic) => (
-            <label key={topic.id} className="flex items-center gap-3">
-              <span className="min-w-0 flex-1 truncate text-sm text-ink">{topic.name}</span>
+      {step === 2 && (
+        <section className="mt-12">
+          <button type="button" onClick={() => setStep(1)} className="text-xs text-muted hover:text-seal">
+            ← 改水平
+          </button>
+          <h1 className="mt-6 font-serif text-4xl font-bold leading-tight text-ink sm:text-5xl">什么时候考，想考多少？</h1>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs text-muted">考试日期</span>
+              <input
+                type="date"
+                value={examDate}
+                onChange={(event) => setExamDate(event.target.value)}
+                className="mt-2 block w-full rounded-[2px] border border-line bg-card px-3 py-3 text-sm text-ink outline-none focus:border-seal"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-muted">目标分</span>
               <input
                 type="number"
                 inputMode="numeric"
-                min={0}
-                max={100}
-                step={5}
-                value={shares[topic.id] ?? 0}
-                onChange={(event) => setShares((current) => ({ ...current, [topic.id]: Number(event.target.value) }))}
-                className="w-20 rounded-[2px] border border-line bg-card px-2 py-2 text-right text-sm text-ink tabular-nums outline-none focus:border-seal"
+                min={60}
+                max={96}
+                step={1}
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+                className="mt-2 block w-full rounded-[2px] border border-line bg-card px-3 py-3 text-sm text-ink tabular-nums outline-none focus:border-seal"
               />
-              <span className="text-xs text-muted">%</span>
             </label>
-          ))}
-        </div>
-      </fieldset>
+          </div>
 
-      <div className="mt-10 flex w-full flex-col items-stretch gap-3 sm:max-w-sm">
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={() => {
-            start(examId, level, goalFromForm(), paperFromForm())
-            navigate("/today")
-          }}
-        >
-          让 Testpass 安排今天
-        </Button>
-        <button
-          type="button"
-          className="inline-flex h-12 w-full items-center justify-center rounded-[2px] border border-line bg-transparent px-6 text-sm text-ink hover:border-seal"
-          onClick={() => {
-            demo()
-            navigate("/today")
-          }}
-        >
-          先看一份练过几天的记录
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setPaperOpen((open) => !open)}
+            className="mt-8 text-xs text-muted underline decoration-line underline-offset-4 hover:text-seal"
+          >
+            {paperOpen ? "收起这场卷子的结构" : "可选：这场卷子长什么样（填了预测更准）"}
+          </button>
+
+          {paperOpen && (
+            <div className="mt-4 rounded-[2px] border border-line bg-card px-4 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs text-muted">总题量</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={5}
+                    max={120}
+                    value={questions}
+                    onChange={(event) => setQuestions(event.target.value)}
+                    className="mt-2 block w-full rounded-[2px] border border-line bg-paper px-3 py-2 text-sm text-ink tabular-nums outline-none focus:border-seal"
+                  />
+                </label>
+                <div>
+                  <span className="text-xs text-muted">难度</span>
+                  <div className="mt-2 flex gap-1">
+                    {DIFFICULTIES.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        aria-pressed={difficulty === item.id}
+                        onClick={() => setDifficulty(item.id)}
+                        className={cn(
+                          "h-10 flex-1 rounded-[2px] border text-xs",
+                          difficulty === item.id ? "border-seal bg-seal text-paper" : "border-line text-muted",
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-muted">各章占比（百分比，不必凑满 100）</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {topics.map((topic) => (
+                  <label key={topic.id} className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-xs text-ink">{topic.name}</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={100}
+                      value={shares[topic.id] ?? 0}
+                      onChange={(event) => setShares((current) => ({ ...current, [topic.id]: Number(event.target.value) }))}
+                      className="w-16 rounded-[2px] border border-line bg-paper px-2 py-1.5 text-right text-xs text-ink tabular-nums outline-none focus:border-seal"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-10 flex flex-col gap-3 sm:max-w-sm">
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => {
+                start(examId, level, goalFromForm(), paperFromForm())
+                navigate("/today")
+              }}
+            >
+              开始
+            </Button>
+          </div>
+        </section>
+      )}
+
       <SyncNotice />
-      <p className="mt-8 text-xs leading-6 text-muted">访客记录随当前浏览器的匿名身份保存。请保留浏览器数据；换设备需要重新开始。</p>
     </main>
   )
-}
-
-function Dot({ on }: { on: boolean }) {
-  return <span className={cn("mt-1.5 h-2 w-2 shrink-0 border", on ? "border-seal bg-seal" : "border-line bg-transparent")} />
 }
