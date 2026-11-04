@@ -112,4 +112,45 @@ describe("projectProgress", () => {
     expect(forecastLine({ mastery, sessions: [], today: "2026-11-03", goal: null })).toBe("还没有目标分")
     expect(forecastLine({ mastery, sessions: [], today: "2026-11-03" })).toBe("还没有目标分")
   })
+
+  it("reports a range that narrows as practice days accumulate", () => {
+    const flat = [{ score: 40 }, { score: 60 }]
+    const one = projectProgress({
+      mastery: flat,
+      sessions: [{ date: "2026-11-01", scoreBefore: 40, scoreAfter: 41 }],
+      today: "2026-11-03",
+      examDate: "2026-11-08",
+      target: 80,
+    })
+    expect(one.samples).toBe(1)
+    expect(one.projected).toBe(55)
+    expect(one.low).toBe(43)
+    expect(one.high).toBe(67)
+
+    const many = projectProgress({
+      mastery: flat,
+      sessions: Array.from({ length: 9 }, (_, index) => ({
+        date: `2026-11-0${index + 1}`,
+        scoreBefore: 40,
+        scoreAfter: 41,
+      })),
+      today: "2026-11-03",
+      examDate: "2026-11-08",
+      target: 80,
+    })
+    expect(many.samples).toBe(9)
+    expect(many.high - many.low).toBe(6)
+    expect(many.high - many.low).toBeLessThan(one.high - one.low)
+  })
+
+  it("mentions the missing practice record instead of inventing a number", () => {
+    const line = forecastLine({
+      mastery,
+      sessions: [],
+      today: "2026-11-03",
+      goal: { examDate: "2026-11-13", target: 80 },
+    })
+    expect(line).toContain("还没有练习记录")
+    expect(line).not.toContain("大约到")
+  })
 })

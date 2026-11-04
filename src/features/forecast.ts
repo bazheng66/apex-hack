@@ -15,6 +15,10 @@ export interface ProgressProjection {
   daysLeft: number
   projected: number
   onTrack: boolean
+  /** How wide the honest range is, based on how many days we have seen. */
+  low: number
+  high: number
+  samples: number
 }
 
 function utcMidnight(day: string): number {
@@ -29,6 +33,18 @@ function daysUntil(today: string, examDate: string): number {
   return Math.max(0, Math.round(diff / 86_400_000))
 }
 
+/** Few samples mean a wide range; there is no confident point estimate early on. */
+function spreadFor(samples: number): number {
+  if (samples < 2) return 12
+  if (samples < 4) return 8
+  if (samples < 8) return 5
+  return 3
+}
+
+function clampScore(score: number): number {
+  return Math.min(96, Math.max(8, score))
+}
+
 export function projectProgress(input: ProgressInput): ProgressProjection {
   const scores = input.mastery.map((item) => item.score)
   const average = scores.length === 0 ? 0 : scores.reduce((sum, score) => sum + score, 0) / scores.length
@@ -41,6 +57,7 @@ export function projectProgress(input: ProgressInput): ProgressProjection {
   const velocity = daily.length === 0 ? 0 : daily.reduce((sum, value) => sum + value, 0) / daily.length
   const daysLeft = daysUntil(input.today, input.examDate)
   const projected = Math.min(96, Math.max(8, Math.round(average + velocity * daysLeft)))
+  const spread = spreadFor(daily.length)
   return {
     average,
     weakest,
@@ -48,6 +65,9 @@ export function projectProgress(input: ProgressInput): ProgressProjection {
     daysLeft,
     projected,
     onTrack: projected >= input.target,
+    low: clampScore(Math.round(projected - spread)),
+    high: clampScore(Math.round(projected + spread)),
+    samples: daily.length,
   }
 }
 
@@ -66,5 +86,8 @@ export function forecastLine(input: {
     target: input.goal.target,
   })
   const reach = projection.onTrack ? `够得到 ${input.goal.target}` : `还不到 ${input.goal.target}`
-  return `最弱的一块现在是 ${projection.weakest}。离考试还有 ${projection.daysLeft} 天，按这段时间的变化，平均大约到 ${projection.projected}，${reach}。`
+  if (projection.samples === 0) {
+    return `最弱的一块现在是 ${projection.weakest}。离考试还有 ${projection.daysLeft} 天，还没有练习记录，先按今天的专项走。`
+  }
+  return `最弱的一块现在是 ${projection.weakest}。离考试还有 ${projection.daysLeft} 天，按现在的节奏大概 ${projection.low}–${projection.high} 分，${reach}。样本 ${projection.samples} 天，练得越多区间越窄。`
 }

@@ -38,7 +38,7 @@ export default function Setup() {
         </span>
         <h1 className="min-w-0 font-serif text-4xl font-bold leading-none tracking-tight text-ink sm:text-6xl">
           Testpass
-          <span className="mt-3 block text-xl font-semibold tracking-wide text-ink sm:text-2xl">AI考试通过助手</span>
+          <span className="mt-3 block text-xl font-semibold tracking-wide text-ink sm:text-2xl">个性化 AI 考试通过助手</span>
         </h1>
       </div>
       <p className="mt-6 text-sm leading-7 text-ink/80">

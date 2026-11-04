@@ -31,7 +31,7 @@ export default function Shell() {
             </span>
             <div className="min-w-0">
               <p className="font-serif text-2xl font-bold leading-none tracking-wide text-ink">Testpass</p>
-              <p className="mt-1.5 font-serif text-[13px] tracking-[0.08em] text-muted">AI考试通过助手</p>
+              <p className="mt-1.5 font-serif text-[13px] tracking-[0.08em] text-muted">个性化 AI 考试通过助手</p>
             </div>
           </div>
           <button
