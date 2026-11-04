@@ -4,10 +4,12 @@ import { shiftDate } from "../engine/agent.ts"
 import { EXAMS, LEVELS } from "../engine/catalog.ts"
 import type { ExamId, Goal, LevelId, PaperDifficulty, PaperProfile } from "../engine/types.ts"
 import { useRecord } from "../lib/useRecord.tsx"
+import { usePremium } from "../lib/premium.ts"
 import { cn } from "../lib/cn.ts"
 import { todayKey } from "../lib/day.ts"
 import { Button } from "./ui/button.tsx"
 import { SyncNotice } from "./SyncNotice.tsx"
+import { UnlockPanel } from "./UnlockPanel.tsx"
 
 const DIFFICULTIES: { id: PaperDifficulty; label: string }[] = [
   { id: "easy", label: "偏易" },
@@ -23,6 +25,7 @@ function equalShares(examId: ExamId): Record<string, number> {
 
 export default function Setup() {
   const { start, demo } = useRecord()
+  const premium = usePremium()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preset = params.get("exam") as ExamId | null
@@ -190,7 +193,15 @@ export default function Setup() {
             {paperOpen ? "收起这场卷子的结构" : "可选：这场卷子长什么样（填了预测更准）"}
           </button>
 
-          {paperOpen && (
+          {!premium.premium && (
+            <UnlockPanel
+              title="填这场卷子要验证身份"
+              hint="绑定邮箱或输入邀请码后，才能按你这场卷子的结构和难度算分；游客先拿到大致区间。"
+              onUnlock={premium.unlock}
+            />
+          )}
+
+          {premium.premium && paperOpen && (
             <div className="mt-4 rounded-[2px] border border-line bg-card px-4 py-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">

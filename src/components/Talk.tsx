@@ -21,8 +21,10 @@ import {
   type WaitKind,
 } from "../lib/talk.ts"
 import { useRecord } from "../lib/useRecord.tsx"
+import { usePremium } from "../lib/premium.ts"
 import { CompanionAvatar, CompanionFigure } from "./Companion.tsx"
 import ImportBank from "./ImportBank.tsx"
+import { UnlockPanel } from "./UnlockPanel.tsx"
 
 /** Starter questions per exam. A click only fills the draft. */
 const EXAMPLES: Record<string, readonly string[]> = {
@@ -33,6 +35,8 @@ const EXAMPLES: Record<string, readonly string[]> = {
 
 export default function Talk() {
   const { state, setState } = useRecord()
+  const premium = usePremium()
+  const [locked, setLocked] = useState<"see" | "past" | null>(null)
   const examId = state?.examId
   const [items, setItems] = useState<TalkTurn[]>(() => readStoredTurns(examId ? localStorage.getItem(storageKey(examId)) : null))
   const itemsRef = useRef(items)
@@ -317,6 +321,23 @@ export default function Talk() {
         )}
       </ol>
 
+      {locked && (
+        <UnlockPanel
+          title={locked === "see" ? "识图要验证一下身份" : "找真题要验证一下身份"}
+          hint="输入邀请码就能用；已经绑定邮箱的账号直接可用。"
+          onUnlock={async (code) => {
+            const ok = await premium.unlock(code)
+            if (ok) {
+              const action = locked
+              setLocked(null)
+              if (action === "see") fileRef.current?.click()
+              else void findQuestion()
+            }
+            return ok
+          }}
+        />
+      )}
+
       <form
         aria-label="发给 Testpass"
         onSubmit={(event) => void sendText(event)}
@@ -349,7 +370,7 @@ export default function Talk() {
           <button
             type="button"
             className="h-12 rounded-[2px] border border-line bg-transparent px-4 text-sm text-ink hover:border-seal disabled:opacity-40"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => (premium.premium ? fileRef.current?.click() : setLocked("see"))}
             disabled={busy}
           >
             识图
@@ -357,7 +378,7 @@ export default function Talk() {
           <button
             type="button"
             className="h-12 rounded-[2px] border border-line bg-transparent px-4 text-sm text-ink hover:border-seal disabled:opacity-40"
-            onClick={() => void findQuestion()}
+            onClick={() => (premium.premium ? void findQuestion() : setLocked("past"))}
             disabled={busy}
           >
             找真题

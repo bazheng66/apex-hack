@@ -1,4 +1,5 @@
 import { safePageUrl } from "../engine/extract.ts"
+import { premiumHeadersFor } from "./premium.ts"
 
 export interface TodayVoice {
   kind: "today"
@@ -76,7 +77,7 @@ export async function askVision(image: string, exam: string, topic: string, note
   try {
     const response = await fetch("/api/see", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await premiumHeadersFor()) },
       body: JSON.stringify({ image, exam, topic, note }),
     })
     if (!response.ok) return null
@@ -95,7 +96,7 @@ export async function askPast(exam: string, topic: string): Promise<PastPaper | 
   try {
     const response = await fetch("/api/past", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await premiumHeadersFor()) },
       body: JSON.stringify({ exam, topic }),
     })
     if (!response.ok) return null
