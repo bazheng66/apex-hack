@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react"
 import { createDemo, createProfile, shiftDate } from "../engine/agent.ts"
-import type { ExamId, Goal, LevelId, RecordState } from "../engine/types.ts"
+import type { ExamId, Goal, LevelId, PaperProfile, RecordState } from "../engine/types.ts"
 import { todayKey } from "./day.ts"
 import { RecordStore, type RecordView } from "./record-store.ts"
 import { bootstrapSupabaseAuth, supabase } from "./supabase.ts"
@@ -10,7 +10,7 @@ interface RecordApi extends RecordView {
   reset: () => void
   retrySync: () => Promise<void>
   flushSync: () => Promise<void>
-  start: (examId: ExamId, level: LevelId, goal?: Goal | null) => void
+  start: (examId: ExamId, level: LevelId, goal?: Goal | null, paper?: PaperProfile | null) => void
   demo: () => void
 }
 const store = new RecordStore(supabase)
@@ -39,9 +39,9 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   }
   const api: RecordApi = {
     ...view, setState: store.update, reset: () => store.update(null), retrySync, flushSync: () => store.flush(),
-    start: (examId, level, goal) => {
+    start: (examId, level, goal, paper) => {
       const profile = createProfile(examId, level, todayKey())
-      store.update(goal ? { ...profile, goal } : profile)
+      store.update({ ...profile, ...(goal ? { goal } : {}), ...(paper ? { paper } : {}) })
     },
     demo: () => { const today = todayKey(); store.update({ ...createDemo(today), goal: { examDate: shiftDate(today, 21), target: 80 } }) },
   }

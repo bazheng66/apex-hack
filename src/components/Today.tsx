@@ -88,6 +88,7 @@ export default function Today() {
     sessions: state.sessions,
     today,
     goal: state.goal,
+    paper: state.paper,
   })
 
   function grade(value: number) {

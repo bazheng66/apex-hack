@@ -142,6 +142,16 @@ export function createDemo(today: string): RecordState {
         due: today,
       },
     ],
+    paper: {
+      questions: 30,
+      difficulty: "hard",
+      shares: [
+        { topicId: "os-paging", percent: 40 },
+        { topicId: "os-sync", percent: 20 },
+        { topicId: "os-deadlock", percent: 20 },
+        { topicId: "os-schedule", percent: 20 },
+      ],
+    },
   }
   return { ...state, daily: planDay(state, today) }
 }

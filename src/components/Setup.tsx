@@ -2,12 +2,24 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { shiftDate } from "../engine/agent.ts"
 import { EXAMS, LEVELS } from "../engine/catalog.ts"
-import type { ExamId, Goal, LevelId } from "../engine/types.ts"
+import type { ExamId, Goal, LevelId, PaperDifficulty, PaperProfile } from "../engine/types.ts"
 import { useRecord } from "../lib/useRecord.tsx"
 import { cn } from "../lib/cn.ts"
 import { todayKey } from "../lib/day.ts"
 import { Button } from "./ui/button.tsx"
 import { SyncNotice } from "./SyncNotice.tsx"
+
+const DIFFICULTIES: { id: PaperDifficulty; label: string; hint: string }[] = [
+  { id: "easy", label: "偏易", hint: "基础题多，计算量小" },
+  { id: "normal", label: "正常", hint: "和往年差不多" },
+  { id: "hard", label: "偏难", hint: "综合题多，容易拉开分" },
+]
+
+function equalShares(examId: ExamId): Record<string, number> {
+  const topics = EXAMS.find((exam) => exam.id === examId)?.topics ?? []
+  const each = topics.length > 0 ? Math.round(100 / topics.length) : 25
+  return Object.fromEntries(topics.map((topic) => [topic.id, each]))
+}
 
 export default function Setup() {
   const { start, demo } = useRecord()
@@ -16,6 +28,9 @@ export default function Setup() {
   const [level, setLevel] = useState<LevelId>("uneven")
   const [examDate, setExamDate] = useState(() => shiftDate(todayKey(), 21))
   const [target, setTarget] = useState("80")
+  const [questions, setQuestions] = useState("30")
+  const [difficulty, setDifficulty] = useState<PaperDifficulty>("normal")
+  const [shares, setShares] = useState<Record<string, number>>(() => equalShares("os"))
 
   function goalFromForm(): Goal {
     const parsed = Number(target)
@@ -25,6 +40,18 @@ export default function Setup() {
       target: Math.min(96, Math.max(60, rounded)),
     }
   }
+
+  function paperFromForm(): PaperProfile {
+    const topics = EXAMS.find((exam) => exam.id === examId)?.topics ?? []
+    const parsed = Number(questions)
+    return {
+      questions: Number.isFinite(parsed) ? Math.min(120, Math.max(5, Math.round(parsed))) : 30,
+      difficulty,
+      shares: topics.map((topic) => ({ topicId: topic.id, percent: Math.max(0, Number(shares[topic.id] ?? 0)) })),
+    }
+  }
+
+  const topics = EXAMS.find((exam) => exam.id === examId)?.topics ?? []
 
   return (
     <main className="sheet mx-auto min-h-svh max-w-xl px-5 py-14 sm:px-6 sm:py-24">
@@ -55,7 +82,10 @@ export default function Setup() {
                 key={exam.id}
                 type="button"
                 aria-pressed={on}
-                onClick={() => setExamId(exam.id)}
+                onClick={() => {
+                  setExamId(exam.id)
+                  setShares(equalShares(exam.id))
+                }}
                 className={cn(
                   "flex w-full items-center gap-4 border-b border-l-2 border-b-line py-4 pr-2 pl-3 text-left",
                   on ? "border-l-seal bg-card" : "border-l-transparent",
@@ -125,12 +155,74 @@ export default function Setup() {
         <p className="mt-3 text-sm leading-6 text-muted">默认 21 天后，目标 80。范围 60 到 96。</p>
       </fieldset>
 
+      <fieldset className="mt-10">
+        <legend className="text-[11px] tracking-[0.18em] text-muted">这场卷子长什么样</legend>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          填了它，预测会按这张卷子的结构和难度算，而不是拿平均分硬套。不知道就按默认的 30 题、正常难度。
+        </p>
+        <div className="mt-4 grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs text-muted">总题量</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={5}
+              max={120}
+              step={1}
+              value={questions}
+              onChange={(event) => setQuestions(event.target.value)}
+              className="mt-2 block w-full rounded-[2px] border border-line bg-card px-3 py-3 text-sm text-ink tabular-nums outline-none focus:border-seal"
+            />
+          </label>
+          <div>
+            <span className="text-xs text-muted">难度</span>
+            <div className="mt-2 flex gap-1">
+              {DIFFICULTIES.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={difficulty === item.id}
+                  title={item.hint}
+                  onClick={() => setDifficulty(item.id)}
+                  className={cn(
+                    "h-12 flex-1 rounded-[2px] border text-sm",
+                    difficulty === item.id ? "border-seal bg-seal text-paper" : "border-line text-muted hover:border-seal",
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-6 text-xs tracking-[0.16em] text-muted">各章占比（按百分比填，加起来不必等于 100）</p>
+        <div className="mt-3 grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
+          {topics.map((topic) => (
+            <label key={topic.id} className="flex items-center gap-3">
+              <span className="min-w-0 flex-1 truncate text-sm text-ink">{topic.name}</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={100}
+                step={5}
+                value={shares[topic.id] ?? 0}
+                onChange={(event) => setShares((current) => ({ ...current, [topic.id]: Number(event.target.value) }))}
+                className="w-20 rounded-[2px] border border-line bg-card px-2 py-2 text-right text-sm text-ink tabular-nums outline-none focus:border-seal"
+              />
+              <span className="text-xs text-muted">%</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div className="mt-10 flex w-full flex-col items-stretch gap-3 sm:max-w-sm">
         <Button
           size="lg"
           className="w-full"
           onClick={() => {
-            start(examId, level, goalFromForm())
+            start(examId, level, goalFromForm(), paperFromForm())
             navigate("/today")
           }}
         >
