@@ -486,6 +486,23 @@ textarea {
   border-left: 9px solid var(--bubble-fill);
 }
 
+/* Welcome: on wide screens the bubble sits above the seal, so its tail points down */
+@media (min-width: 48rem) {
+  .welcome-bubble.bubble-tail::before {
+    left: 58px;
+    bottom: -11px;
+    border-top: 11px solid var(--color-ink);
+    border-right: 11px solid transparent;
+  }
+
+  .welcome-bubble.bubble-tail::after {
+    left: 59px;
+    bottom: -9px;
+    border-top: 9px solid var(--bubble-fill);
+    border-right: 9px solid transparent;
+  }
+}
+
 .bubble-in {
   animation: bubble-in 180ms ease-out both;
 }
