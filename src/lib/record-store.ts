@@ -7,7 +7,7 @@ import { loadRecord, readable, saveRecord } from "./storage.ts"
 import { persistDerivedFromRecord } from "../algo/sync.ts"
 import { migrateLegacyBanks } from "./legacy-banks.ts"
 
-export type SyncStatus = "loading" | "local" | "syncing" | "synced" | "error"
+export type SyncStatus = "loading" | "empty" | "local" | "syncing" | "synced" | "error"
 export interface RecordView { state: RecordState | null; status: SyncStatus; error: string | null; ready: boolean; cloudExamId: string | null }
 interface Cache { state: RecordState; revision: number; dirty: boolean }
 
@@ -68,7 +68,7 @@ export class RecordStore {
         if (state) { localStorage.setItem("testpass-legacy-owner", userId); this.dirty = true }
       }
       if (state) state = rollTo(state, todayKey())
-      this.emit({ state, ready: true, status: this.dirty ? "syncing" : state ? "synced" : "local", cloudExamId: remote?.id ?? null })
+      this.emit({ state, ready: true, status: this.dirty ? "syncing" : state ? "synced" : "empty", cloudExamId: remote?.id ?? null })
       this.cache()
       if (state) { this.dirty = true; await this.flush() }
     } catch (error) {
