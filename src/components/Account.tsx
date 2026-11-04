@@ -71,11 +71,21 @@ export default function Account() {
   }
 
   return (
-    <article className="max-w-xl">
-      <p className="text-[11px] tracking-[0.22em] text-muted">账号</p>
-      <h1 className="mt-4 font-serif text-3xl font-semibold leading-snug text-ink">
-        {identity.kind === "email" ? `已绑定 ${identity.email ?? "邮箱"}` : "把进度存到一个邮箱上"}
-      </h1>
+    <main className="sheet mx-auto min-h-svh max-w-xl px-5 py-14 sm:px-6 sm:py-20">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-[2px] bg-seal font-serif text-lg font-semibold leading-none text-paper">T</span>
+          <span className="font-serif text-2xl font-bold leading-none tracking-wide text-ink">Testpass</span>
+        </span>
+        <Link to="/" className="text-xs text-muted hover:text-seal">
+          回到首页
+        </Link>
+      </div>
+      <article className="mt-12 max-w-xl">
+        <p className="text-[11px] tracking-[0.22em] text-muted">账号</p>
+        <h1 className="mt-4 font-serif text-3xl font-semibold leading-snug text-ink">
+          {identity.kind === "email" ? `已绑定 ${identity.email ?? "邮箱"}` : "把进度存到一个邮箱上"}
+        </h1>
       <p className="mt-4 text-sm leading-7 text-muted">
         {identity.kind === "email"
           ? "换设备时用同一个邮箱登录，练习记录、连续天数、实力曲线都会跟着过来。"
@@ -131,6 +141,7 @@ export default function Account() {
       <p className="mt-10 text-xs leading-6 text-muted">
         绑定和不绑定都不影响今天做题。访客身份随浏览器保存，清掉浏览器数据就找不回来了；绑定邮箱之后才有找回的可能。
       </p>
-    </article>
+      </article>
+    </main>
   )
 }

@@ -42,12 +42,13 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
+          {/* Reachable without a record: a new device signs in here before it has one. */}
+          <Route path="/account" element={<Account />} />
           <Route element={<Workspace />}>
             <Route path="/today" element={<Today />} />
             <Route path="/talk" element={<Talk />} />
             <Route path="/mock" element={<Mock />} />
             <Route path="/progress" element={<Progress />} />
-            <Route path="/account" element={<Account />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
