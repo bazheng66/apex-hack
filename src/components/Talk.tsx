@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react"
 import { recordUpload, scoreOf } from "../engine/agent.ts"
 import { examById, topicById } from "../engine/catalog.ts"
 import { todayKey } from "../lib/day.ts"
@@ -6,6 +6,7 @@ import { askPast, askSenior, askVision } from "../lib/senior.ts"
 import {
   UNWRITTEN,
   imageFileError,
+  openingTurn,
   pastTurn,
   priorHistory,
   readStoredTurns,
@@ -20,7 +21,15 @@ import {
   type WaitKind,
 } from "../lib/talk.ts"
 import { useRecord } from "../lib/useRecord.tsx"
+import { CompanionAvatar, CompanionFigure } from "./Companion.tsx"
 import ImportBank from "./ImportBank.tsx"
+
+/** Starter questions per exam. A click only fills the draft. */
+const EXAMPLES: Record<string, readonly string[]> = {
+  os: ["页面置换里 FIFO 和 LRU 什么时候第一次不一样", "银行家算法里，安全序列是怎么一步步找出来的", "信号量的 P、V 操作顺序放反了，会出什么事"],
+  network: ["超时和三个重复 ACK 之后，拥塞窗口各自怎么变", "停等协议和滑动窗口，信道利用率差在哪", "距离向量路由为什么会计数到无穷"],
+  ds: ["堆排序建堆为什么从最后一个非叶结点开始", "二叉排序树删掉有两个孩子的结点，谁来补位", "线性探测解决冲突时，平均查找长度怎么算"],
+}
 
 export default function Talk() {
   const { state, setState } = useRecord()
@@ -33,6 +42,8 @@ export default function Talk() {
   const [wait, setWait] = useState<WaitKind | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [entering] = useState(items.length)
+  const draftRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLOListElement>(null)
   const lock = useRef(false)
@@ -65,6 +76,14 @@ export default function Talk() {
   const record = state
   const topic = topicById(record.examId, record.daily.topicId)
   const exam = examById(record.examId)
+  const opening = items.every((item) => item.id === "open")
+  const examples = EXAMPLES[record.examId] ?? []
+  const roleAt = (index: number) => (index < 0 ? null : index < items.length ? items[index].role : wait ? "senior" : null)
+
+  function pickExample(text: string) {
+    setDraft(text)
+    draftRef.current?.focus()
+  }
 
   async function sendText(event: FormEvent) {
     event.preventDefault()
@@ -183,90 +202,118 @@ export default function Talk() {
         ref={listRef}
         role="log"
         aria-label="对话记录"
-        className="talk-scroll mt-6 flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-y-auto overscroll-contain pb-8"
+        className="talk-scroll mt-6 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-4 pb-8"
       >
-        {items.map((item) =>
-          item.id === "open" ? (
-            <li key={item.id}>
-              <p className="max-w-2xl border-l-2 border-l-seal pl-4 font-serif text-xl leading-8">{item.text}</p>
-            </li>
-          ) : item.role === "user" ? (
-            <li key={item.id} className="ml-auto w-fit max-w-[88%] text-right">
-              <p className="text-[11px] tracking-[0.2em] text-muted">你</p>
-              <div className="mt-2 border-t border-ink pt-3">
-                {item.image && (
-                  <img
-                    src={item.image}
-                    alt="刚发送的卷面"
-                    className="mb-3 ml-auto max-h-48 max-w-full rounded-[2px] border border-line object-contain sm:max-w-64"
-                  />
-                )}
-                <p className="text-sm leading-7 break-words">{item.text}</p>
-              </div>
-            </li>
-          ) : (
-            <li key={item.id}>
-              <p className="text-[11px] tracking-[0.2em] text-muted">Testpass</p>
-              <div className="mt-2 border-l-2 border-l-seal pl-4">
-                {item.seen && (
-                  <div className="mb-4 border-b border-line pb-4">
-                    <p className="text-[11px] tracking-[0.18em] text-muted">卷面上读到</p>
-                    <p className="mt-2 text-sm leading-7 break-words">{item.seen}</p>
-                  </div>
-                )}
-                <p className="text-sm leading-7 break-words">{item.text}</p>
-                {item.questions && item.questions.length > 0 && (
-                  <ol className="mt-5 space-y-4 text-left">
-                    {item.questions.map((question, index) => {
-                      const done = stemRecorded(item, question.stem)
-                      return (
-                        <li key={`${item.id}-${index}`} className="rounded-[2px] border border-line bg-card px-4 py-3">
-                          <p className="text-[11px] tracking-[0.16em] text-muted">第 {index + 1} 题</p>
-                          <p className="mt-2 text-sm leading-7 break-words">{question.stem}</p>
-                          {done ? (
-                            <p className="mt-3 text-xs text-muted">已经按错题记入实力。</p>
-                          ) : (
-                            <button
-                              type="button"
-                              className="mt-3 inline-flex min-h-11 items-center text-left text-xs text-seal underline decoration-line underline-offset-4 hover:decoration-seal"
-                              onClick={() => markWrong(item, question.stem)}
-                            >
-                              这题我做错了，记入{topicById(record.examId, item.topicId ?? topic.id).name}
-                            </button>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ol>
-                )}
-                {item.source && (
-                  <a
-                    href={item.source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-5 block text-left text-xs leading-6 text-ink"
-                  >
-                    <span className="underline decoration-line underline-offset-4 hover:decoration-seal">出处 · {item.source.title}</span>
-                    <span className="mt-1 block break-words text-muted">
-                      {item.source.url.split("/").map((part, index, all) => (
-                        <span key={`${index}-${part}`}>
-                          {index > 0 ? "/" : null}
-                          {part}
-                          {index < all.length - 1 ? <wbr /> : null}
-                        </span>
-                      ))}
-                    </span>
-                  </a>
-                )}
-              </div>
-            </li>
-          ),
+        {opening && !wait ? (
+          <li className="m-auto w-full max-w-xl py-4">
+            <div className="flex items-end gap-4">
+              <CompanionFigure hint="encourage" className="h-20 w-[76px]" />
+              <p className="bubble bubble-senior bubble-tail bubble-in min-w-0 px-4 py-3 font-serif text-base leading-[1.75] text-ink sm:text-[17px]">
+                {items[0]?.text ?? openingTurn().text}
+              </p>
+            </div>
+            {examples.length > 0 && (
+              <>
+                <p className="mt-8 text-[11px] tracking-[0.2em] text-muted">可以这样问，点一下会填进下面</p>
+                <ul className="mt-3 space-y-2">
+                  {examples.map((example) => (
+                    <li key={example}>
+                      <button
+                        type="button"
+                        onClick={() => pickExample(example)}
+                        className="min-h-11 w-full rounded-[2px] border border-line bg-card px-4 py-2.5 text-left text-sm leading-6 text-ink hover:border-ink"
+                      >
+                        {example}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </li>
+        ) : (
+          items.map((item, index) => (
+            <Panel
+              key={item.id}
+              role={item.role === "user" ? "user" : "senior"}
+              first={roleAt(index - 1) !== item.role}
+              last={roleAt(index + 1) !== item.role}
+              delay={index < entering ? Math.min(index, 2) * 40 : 0}
+            >
+              {item.id === "open" ? (
+                <p className="font-serif text-base leading-[1.75] break-words sm:text-[17px]">{item.text}</p>
+              ) : item.role === "user" ? (
+                <>
+                  {item.image && (
+                    <img
+                      src={item.image}
+                      alt="刚发送的卷面"
+                      className="mb-3 max-h-48 max-w-full rounded-[2px] border border-line object-contain sm:max-w-64"
+                    />
+                  )}
+                  <p className="text-[14px] leading-[1.75] break-words sm:text-[15px]">{item.text}</p>
+                </>
+              ) : (
+                <>
+                  {item.seen && (
+                    <div className="mb-4 border-b border-line pb-4">
+                      <p className="text-[11px] tracking-[0.18em] text-muted">卷面上读到</p>
+                      <p className="mt-2 text-[14px] leading-[1.75] break-words sm:text-[15px]">{item.seen}</p>
+                    </div>
+                  )}
+                  <p className="text-[14px] leading-[1.75] break-words sm:text-[15px]">{item.text}</p>
+                  {item.questions && item.questions.length > 0 && (
+                    <ol className="mt-5 space-y-4 text-left">
+                      {item.questions.map((question, index) => {
+                        const done = stemRecorded(item, question.stem)
+                        return (
+                          <li key={`${item.id}-${index}`} className="rounded-[2px] border border-line bg-paper px-4 py-3">
+                            <p className="text-[11px] tracking-[0.16em] text-muted">第 {index + 1} 题</p>
+                            <p className="mt-2 text-[14px] leading-[1.75] break-words sm:text-[15px]">{question.stem}</p>
+                            {done ? (
+                              <p className="mt-3 text-xs text-muted">已经按错题记入实力。</p>
+                            ) : (
+                              <button
+                                type="button"
+                                className="mt-3 inline-flex min-h-11 items-center text-left text-xs text-seal underline decoration-line underline-offset-4 hover:decoration-seal"
+                                onClick={() => markWrong(item, question.stem)}
+                              >
+                                这题我做错了，记入{topicById(record.examId, item.topicId ?? topic.id).name}
+                              </button>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  )}
+                  {item.source && (
+                    <a
+                      href={item.source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-5 block text-left text-xs leading-6 text-ink"
+                    >
+                      <span className="underline decoration-line underline-offset-4 hover:decoration-seal">出处 · {item.source.title}</span>
+                      <span className="mt-1 block break-words text-muted">
+                        {item.source.url.split("/").map((part, index, all) => (
+                          <span key={`${index}-${part}`}>
+                            {index > 0 ? "/" : null}
+                            {part}
+                            {index < all.length - 1 ? <wbr /> : null}
+                          </span>
+                        ))}
+                      </span>
+                    </a>
+                  )}
+                </>
+              )}
+            </Panel>
+          ))
         )}
         {wait && (
-          <li>
-            <p className="text-[11px] tracking-[0.2em] text-muted">Testpass</p>
-            <p className="mt-2 border-l-2 border-l-seal pl-4 text-sm leading-7 text-muted">{waitingCopy(wait)}</p>
-          </li>
+          <Panel role="senior" first={roleAt(items.length - 1) !== "senior"} last delay={0} waiting>
+            <p className="text-[14px] leading-[1.75] text-muted sm:text-[15px]">{waitingCopy(wait)}</p>
+          </Panel>
         )}
       </ol>
 
@@ -284,6 +331,7 @@ export default function Talk() {
           </div>
         )}
         <textarea
+          ref={draftRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onDraftKey}
@@ -339,5 +387,35 @@ export default function Talk() {
       </form>
       <ImportBank open={importOpen} onOpenChange={setImportOpen} examId={examId} />
     </section>
+  )
+}
+
+function Panel({
+  role,
+  first,
+  last,
+  delay,
+  waiting = false,
+  children,
+}: {
+  role: "senior" | "user"
+  first: boolean
+  last: boolean
+  delay: number
+  waiting?: boolean
+  children: ReactNode
+}) {
+  const senior = role === "senior"
+  return (
+    <li className={`flex items-end gap-4 ${first ? "mt-6 first:mt-0" : "mt-2"} ${senior ? "" : "justify-end"}`}>
+      {senior && <div className="w-[38px] shrink-0">{last && <CompanionAvatar hint={waiting ? "urge" : "encourage"} />}</div>}
+      <div
+        className={`bubble bubble-in bubble-${role} ${last ? "bubble-tail" : ""} min-w-0 max-w-[78%] px-4 py-3 text-ink`}
+        style={delay ? { animationDelay: `${delay}ms` } : undefined}
+      >
+        <p className="sr-only">{senior ? "Testpass" : "你"}</p>
+        {children}
+      </div>
+    </li>
   )
 }

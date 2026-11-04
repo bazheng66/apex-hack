@@ -74,144 +74,430 @@ textarea {
   background: color-mix(in srgb, var(--color-ink) 24%, var(--color-line));
 }
 
-.companion-mark {
+.seal {
+  display: block;
   overflow: visible;
 }
 
-.companion-figure,
-.companion-head {
+.seal-small {
+  overflow: hidden;
+}
+
+.seal-figure,
+.seal-body,
+.seal-handle,
+.seal-eyes,
+.seal-arm-l,
+.seal-arm-r,
+.seal-z,
+.seal-spark,
+.seal-sweat {
   transform-box: fill-box;
+}
+
+.seal-figure,
+.seal-body,
+.seal-handle {
   transform-origin: 50% 100%;
 }
 
-.companion-spark {
-  opacity: 0;
+.seal-eyes {
+  transform-origin: 50% 50%;
+  animation: seal-blink 4.2s steps(1, end) infinite;
 }
 
-.companion-eyes-shut {
-  display: none;
+.seal-pupils {
+  transition: transform 140ms ease-out;
 }
 
-.companion-mark[data-hint="encourage"] .companion-figure {
-  animation: companion-breathe 3.6s ease-in-out infinite;
+.seal-arm-l {
+  transform-origin: 100% 0%;
 }
 
-.companion-mark[data-hint="encourage"] .companion-head {
-  animation: companion-nod 3.6s ease-in-out infinite;
+.seal-arm-r {
+  transform-origin: 0% 0%;
 }
 
-.companion-mark[data-hint="urge"] .companion-head {
-  animation: companion-nod 0.95s ease-in-out infinite;
+.seal-arm-l.seal-arm-up {
+  transform-origin: 100% 100%;
 }
 
-.companion-mark[data-hint="urge"] .companion-seal {
-  animation: companion-pulse 0.95s ease-in-out infinite;
+.seal-arm-r.seal-arm-up {
+  transform-origin: 0% 100%;
 }
 
-.companion-mark[data-hint="celebrate"] .companion-figure {
-  animation: companion-lift 1.6s ease-in-out infinite;
+.seal-print {
+  opacity: 0.3;
 }
 
-.companion-mark[data-hint="celebrate"] .companion-shadow {
-  animation: companion-shadow 1.6s ease-in-out infinite;
+.seal-z {
+  opacity: 0.7;
 }
 
-.companion-mark[data-hint="celebrate"] .companion-spark {
-  animation: companion-spark 1.6s ease-out infinite;
+/* encourage: a calm float, hands swaying a little */
+.seal[data-hint="encourage"]:not(.seal-small) .seal-figure {
+  animation: seal-float 3.2s ease-in-out infinite;
 }
 
-.companion-mark[data-hint="celebrate"] .companion-spark-b {
-  animation-delay: 0.18s;
+.seal[data-hint="encourage"]:not(.seal-small) .seal-shadow {
+  animation: seal-shadow 3.2s ease-in-out infinite;
 }
 
-.companion-mark[data-hint="celebrate"] .companion-spark-c {
-  animation-delay: 0.36s;
+.seal[data-hint="encourage"] .seal-arm-l {
+  animation: seal-arm-l 3.2s ease-in-out infinite;
 }
 
-.companion-mark[data-hint="sleepy"] .companion-figure {
-  opacity: 0.72;
-  animation: companion-breathe 5.6s ease-in-out infinite;
+.seal[data-hint="encourage"] .seal-arm-r {
+  animation: seal-arm-r 3.2s ease-in-out infinite;
 }
 
-.companion-mark[data-hint="sleepy"] .companion-head {
-  transform: rotate(12deg);
+/* urge: shifting side to side, hands flapping, a bead of sweat */
+.seal[data-hint="urge"] .seal-figure {
+  animation: seal-sway 0.8s ease-in-out infinite;
 }
 
-.companion-mark[data-hint="sleepy"] .companion-eyes-open {
-  display: none;
+.seal-small[data-hint="urge"] .seal-figure {
+  animation-name: seal-sway-small;
 }
 
-.companion-mark[data-hint="sleepy"] .companion-eyes-shut {
-  display: block;
+.seal[data-hint="urge"] .seal-arm-l {
+  animation: seal-flap-l 0.4s ease-in-out infinite alternate;
 }
 
-@keyframes companion-breathe {
+.seal[data-hint="urge"] .seal-arm-r {
+  animation: seal-flap-r 0.4s ease-in-out infinite alternate;
+}
+
+.seal[data-hint="urge"] .seal-sweat {
+  animation: seal-drip 1.6s ease-in infinite;
+}
+
+/* celebrate: hands up, one hop, a stamp mark on landing */
+.seal[data-hint="celebrate"] .seal-figure {
+  animation: seal-hop 1.8s ease-in-out infinite;
+}
+
+.seal[data-hint="celebrate"] .seal-shadow {
+  animation: seal-hop-shadow 1.8s ease-in-out infinite;
+}
+
+.seal[data-hint="celebrate"] .seal-print {
+  animation: seal-print 1.8s ease-out infinite;
+}
+
+.seal[data-hint="celebrate"] .seal-arm-l {
+  animation: seal-cheer-l 0.9s ease-in-out infinite alternate;
+}
+
+.seal[data-hint="celebrate"] .seal-arm-r {
+  animation: seal-cheer-r 0.9s ease-in-out infinite alternate;
+}
+
+.seal[data-hint="celebrate"] .seal-spark {
+  animation: seal-spark 1.8s ease-out infinite;
+}
+
+.seal[data-hint="celebrate"] .seal-spark-b {
+  animation-delay: 0.15s;
+}
+
+.seal[data-hint="celebrate"] .seal-spark-c {
+  animation-delay: 0.3s;
+}
+
+/* sleepy: eyes shut, handle drooping, slow breath, z rising */
+.seal[data-hint="sleepy"] .seal-handle {
+  transform: rotate(16deg);
+}
+
+.seal[data-hint="sleepy"] .seal-body {
+  animation: seal-breathe 4.8s ease-in-out infinite;
+}
+
+.seal[data-hint="sleepy"] .seal-z {
+  animation: seal-z 3.6s ease-out infinite;
+}
+
+.seal[data-hint="sleepy"] .seal-z-b {
+  animation-delay: 1.8s;
+}
+
+@keyframes seal-blink {
   0%,
-  100% {
-    transform: scale(1);
+  93% {
+    transform: scaleY(1);
   }
-  50% {
-    transform: scale(1.035);
+  95% {
+    transform: scaleY(0.15);
+  }
+  97%,
+  100% {
+    transform: scaleY(1);
   }
 }
 
-@keyframes companion-nod {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  40% {
-    transform: rotate(9deg);
-  }
-  70% {
-    transform: rotate(-2deg);
-  }
-}
-
-@keyframes companion-lift {
+@keyframes seal-float {
   0%,
   100% {
     transform: translateY(0);
   }
-  35% {
-    transform: translateY(-4px);
-  }
-  55% {
-    transform: translateY(-1px);
-  }
-}
-
-@keyframes companion-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
   50% {
-    opacity: 0.4;
+    transform: translateY(-0.8px);
   }
 }
 
-@keyframes companion-spark {
-  0% {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  30% {
-    opacity: 0.95;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes companion-shadow {
+@keyframes seal-shadow {
   0%,
   100% {
     opacity: 0.12;
   }
-  35% {
+  50% {
+    opacity: 0.07;
+  }
+}
+
+@keyframes seal-arm-l {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-12deg);
+  }
+}
+
+@keyframes seal-arm-r {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes seal-sway {
+  0%,
+  100% {
+    transform: translateX(-0.6px) rotate(-3deg);
+  }
+  50% {
+    transform: translateX(0.6px) rotate(3deg);
+  }
+}
+
+@keyframes seal-sway-small {
+  0%,
+  100% {
+    transform: translateX(-0.3px) rotate(-2deg);
+  }
+  50% {
+    transform: translateX(0.3px) rotate(2deg);
+  }
+}
+
+@keyframes seal-flap-l {
+  from {
+    transform: rotate(-8deg);
+  }
+  to {
+    transform: rotate(-38deg);
+  }
+}
+
+@keyframes seal-flap-r {
+  from {
+    transform: rotate(8deg);
+  }
+  to {
+    transform: rotate(38deg);
+  }
+}
+
+@keyframes seal-drip {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.5px);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
+@keyframes seal-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  12% {
+    transform: translateY(0) scale(1.05, 0.93);
+  }
+  36% {
+    transform: translateY(-3px) scale(0.97, 1.04);
+  }
+  56% {
+    transform: translateY(0) scale(1, 1);
+  }
+  62% {
+    transform: translateY(0) scale(1.05, 0.94);
+  }
+  72% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+@keyframes seal-hop-shadow {
+  0%,
+  56%,
+  100% {
+    opacity: 0.12;
+  }
+  36% {
     opacity: 0.04;
+  }
+}
+
+@keyframes seal-print {
+  0%,
+  55% {
+    opacity: 0;
+  }
+  62% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes seal-cheer-l {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(-16deg);
+  }
+}
+
+@keyframes seal-cheer-r {
+  from {
+    transform: rotate(4deg);
+  }
+  to {
+    transform: rotate(16deg);
+  }
+}
+
+@keyframes seal-spark {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(1px);
+  }
+  40% {
+    opacity: 1;
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes seal-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.04);
+  }
+}
+
+@keyframes seal-z {
+  0% {
+    opacity: 0;
+    transform: translate(0, 1px);
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(1.5px, -3px);
+  }
+}
+
+/* Talk: comic panels with an ink outline, a hard shadow, and a tail toward the speaker */
+.bubble {
+  position: relative;
+  border: 1px solid var(--color-ink);
+  border-radius: 4px;
+  box-shadow: 4px 4px 0 var(--color-ink);
+}
+
+.bubble-senior {
+  --bubble-fill: var(--color-card);
+  background: var(--bubble-fill);
+}
+
+.bubble-user {
+  --bubble-fill: color-mix(in srgb, var(--color-moss) 13%, var(--color-paper));
+  background: var(--bubble-fill);
+}
+
+.bubble-tail::before,
+.bubble-tail::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble-senior.bubble-tail::before {
+  left: -11px;
+  bottom: 7px;
+  border-top: 11px solid transparent;
+  border-right: 11px solid var(--color-ink);
+}
+
+.bubble-senior.bubble-tail::after {
+  left: -9px;
+  bottom: 8px;
+  border-top: 9px solid transparent;
+  border-right: 9px solid var(--bubble-fill);
+}
+
+.bubble-user.bubble-tail::before {
+  right: -11px;
+  bottom: 7px;
+  border-top: 11px solid transparent;
+  border-left: 11px solid var(--color-ink);
+}
+
+.bubble-user.bubble-tail::after {
+  right: -9px;
+  bottom: 8px;
+  border-top: 9px solid transparent;
+  border-left: 9px solid var(--bubble-fill);
+}
+
+.bubble-in {
+  animation: bubble-in 180ms ease-out both;
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -223,5 +509,13 @@ textarea {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Hold each pose still: eyes open, no hop or sway, sparks and z shown in place. */
+  .seal,
+  .seal *,
+  .bubble-in {
+    animation: none !important;
+    transition: none !important;
   }
 }
