@@ -11,6 +11,8 @@ interface RecordApi extends RecordView {
   retrySync: () => Promise<void>
   flushSync: () => Promise<void>
   start: (examId: ExamId, level: LevelId, goal?: Goal | null, paper?: PaperProfile | null) => void
+  openExam: (examId: ExamId) => Promise<boolean>
+  examsWithRecords: () => Promise<ExamId[]>
   demo: () => void
 }
 const store = new RecordStore(supabase)
@@ -39,6 +41,7 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   }
   const api: RecordApi = {
     ...view, setState: store.update, reset: () => store.update(null), retrySync, flushSync: () => store.flush(),
+    openExam: store.openExam, examsWithRecords: store.examsWithRecords,
     start: (examId, level, goal, paper) => {
       const profile = createProfile(examId, level, todayKey())
       store.update({ ...profile, ...(goal ? { goal } : {}), ...(paper ? { paper } : {}) })
