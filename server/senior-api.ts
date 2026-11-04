@@ -2,6 +2,9 @@ import type { IncomingMessage } from "node:http"
 import type { Connect, Plugin } from "vite"
 import { questionsFromModel, safePageUrl, visionReading } from "../src/engine/extract.ts"
 import { readLimitedBody } from "./imports/http.js"
+import { codeMatches, premiumAllowed, type PremiumEnv } from "./premium.js"
+
+export interface UnlockEnv extends PremiumEnv {}
 
 const SYSTEM = [
   "你是 Testpass，负责 AI 考试通过助手。",
@@ -32,8 +35,33 @@ export async function seniorFetch(request: Request, route: "senior" | "see" | "p
   return result ?? Response.json({ error: "No response" }, { status: 502 })
 }
 
-export function seniorApi(apiKey: string): Plugin {
-  const attach = (middlewares: Connect.Server) => {
+export async function unlockFetch(request: Request, env: UnlockEnv = process.env as UnlockEnv): Promise<Response> {
+  if (request.method !== "POST") return Response.json({ ok: false }, { status: 405, headers: { Allow: "POST" } })
+  try {
+    const body = (await request.json()) as { code?: unknown }
+    const code = typeof body.code === "string" ? body.code : ""
+    if (!codeMatches(code, env.ACCESS_CODE)) return Response.json({ ok: false }, { status: 403 })
+    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  } catch {
+    return Response.json({ ok: false }, { status: 400 })
+  }
+}
+
+async function unlock(request: IncomingMessage, response: JsonResponse) {
+  try {
+    const body = await readJson(request)
+    const code = typeof body.code === "string" ? body.code : ""
+    if (!codeMatches(code, process.env.ACCESS_CODE)) {
+      send(response, 403, { ok: false })
+      return
+    }
+    send(response, 200, { ok: true })
+  } catch {
+    send(response, 400, { ok: false })
+  }
+}
+
+export function seniorApi(apiKey: string): Plugin {  const attach = (middlewares: Connect.Server) => {
     middlewares.use("/api/senior", (request, response, next) => {
       if (request.method !== "POST") {
         next()
@@ -54,6 +82,13 @@ export function seniorApi(apiKey: string): Plugin {
         return
       }
       void findPast(request, response, apiKey)
+    })
+    middlewares.use("/api/unlock", (request, response, next) => {
+      if (request.method !== "POST") {
+        next()
+        return
+      }
+      void unlock(request, response)
     })
   }
 
@@ -144,6 +179,10 @@ function promptFor(body: SeniorBody): string | null {
 
 async function seeImage(request: IncomingMessage | Request, response: JsonResponse, apiKey: string) {
   try {
+    if (!(await premiumAllowed(request))) {
+      send(response, 403, { error: "PREMIUM_REQUIRED" })
+      return
+    }
     const body = await readJson(request, 8_000_000)
     const image = clip(body.image, 7_000_000)
     if (!/^data:image\/(jpeg|png|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(image)) {
@@ -173,6 +212,10 @@ async function seeImage(request: IncomingMessage | Request, response: JsonRespon
 
 async function findPast(request: IncomingMessage | Request, response: JsonResponse, apiKey: string) {
   try {
+    if (!(await premiumAllowed(request))) {
+      send(response, 403, { error: "PREMIUM_REQUIRED" })
+      return
+    }
     const body = await readJson(request, 20_000)
     const exam = clip(body.exam, 40)
     const topic = clip(body.topic, 40)
