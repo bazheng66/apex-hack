@@ -117,7 +117,10 @@ export default function Today() {
         <div className="min-w-0 border-l border-line px-3 py-5 sm:px-5">
           <dt className="text-[11px] tracking-[0.14em] text-muted">时长</dt>
           <dd className="mt-2 font-serif text-2xl leading-none text-ink tabular-nums">
-            {state.daily.minutes} <span className="font-sans text-xs font-normal tracking-normal text-muted">分钟</span>
+            {state.daily.status === "skipped" ? 0 : state.daily.minutes}{" "}
+            <span className="font-sans text-xs font-normal tracking-normal text-muted">
+              {state.daily.status === "skipped" ? "已停手" : "分钟"}
+            </span>
           </dd>
         </div>
         <div className="min-w-0 border-l border-line px-3 py-5 sm:px-5">
