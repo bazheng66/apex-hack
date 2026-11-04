@@ -68,7 +68,7 @@ export class RecordStore {
         if (state) { localStorage.setItem("testpass-legacy-owner", userId); this.dirty = true }
       }
       if (state) state = rollTo(state, todayKey())
-      this.emit({ state, ready: true, status: this.dirty ? "syncing" : "synced", cloudExamId: remote?.id ?? null })
+      this.emit({ state, ready: true, status: this.dirty ? "syncing" : state ? "synced" : "local", cloudExamId: remote?.id ?? null })
       this.cache()
       if (state) { this.dirty = true; await this.flush() }
     } catch (error) {

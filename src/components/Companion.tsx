@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react"
-import { COMPANION_LINE, HINT_LABEL, copyLines, type CompanionHint } from "../features/companion.ts"
+import { useEffect, useRef, useState, type RefObject } from "react"
+import { COMPANION_HINTS, COMPANION_LINE, HINT_LABEL, copyLines, type CompanionHint } from "../features/companion.ts"
 
 export function Companion({
   hint,
@@ -29,7 +29,7 @@ export function Companion({
       aria-live="polite"
       className="mt-8 flex scroll-mt-6 items-start gap-4 rounded-[2px] border border-line bg-card px-4 py-4 sm:gap-5 sm:px-5"
     >
-      <CompanionMark hint={hint} />
+      <CompanionFigure hint={hint} />
       <div className="min-w-0 pt-1">
         <p className="text-[11px] tracking-[0.18em] text-muted">
           {HINT_LABEL[hint]}
@@ -52,40 +52,220 @@ export function Companion({
   )
 }
 
-function CompanionMark({ hint }: { hint: CompanionHint }) {
+/** The full seal figure. A click only changes its face; the line beside it stays with the rules. */
+export function CompanionFigure({ hint, className = "h-24 w-[91px]" }: { hint: CompanionHint; className?: string }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [pick, setPick] = useState<{ from: CompanionHint; face: CompanionHint } | null>(null)
+  const face = pick && pick.from === hint ? pick.face : hint
+  const look = usePointerLook(ref)
+
+  function next() {
+    const index = COMPANION_HINTS.indexOf(face)
+    setPick({ from: hint, face: COMPANION_HINTS[(index + 1) % COMPANION_HINTS.length] })
+  }
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={next}
+      aria-label={`换个表情，现在是${HINT_LABEL[face]}`}
+      className="shrink-0 cursor-pointer rounded-[2px] bg-transparent p-0"
+    >
+      <SealMark hint={face} look={look} className={className} />
+    </button>
+  )
+}
+
+/** Small head-and-hands avatar for the talk page. It looks toward its bubble. */
+export function CompanionAvatar({ hint }: { hint: CompanionHint }) {
+  return <SealMark hint={hint} look={{ x: 1, y: 0 }} small className="h-[38px] w-[38px]" />
+}
+
+type Look = { x: number; y: number }
+
+function usePointerLook(ref: RefObject<HTMLElement | null>): Look {
+  const [look, setLook] = useState<Look>({ x: 0, y: 0 })
+  useEffect(() => {
+    const node = ref.current
+    if (!node || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    let frame = 0
+    function onMove(event: PointerEvent) {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (!node) return
+        const box = node.getBoundingClientRect()
+        const dx = event.clientX - (box.left + box.width / 2)
+        const dy = event.clientY - (box.top + box.height * 0.4)
+        const x = Math.abs(dx) < box.width * 0.5 ? 0 : Math.sign(dx)
+        const y = dy < -box.height * 0.5 ? -1 : 0
+        setLook((prev) => (prev.x === x && prev.y === y ? prev : { x, y }))
+      })
+    }
+    window.addEventListener("pointermove", onMove, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener("pointermove", onMove)
+    }
+  }, [ref])
+  return look
+}
+
+const INK = "#1c1612"
+const SEAL = "#8f2d1f"
+const SEAL_FACE = "#6b2117"
+const EYE = "#fffaf3"
+const SWEAT = "#9db4bf"
+
+/** A walking square seal, drawn on a 20×21 pixel grid with rects only. */
+function SealMark({ hint, look, small = false, className }: { hint: CompanionHint; look: Look; small?: boolean; className: string }) {
+  const awake = hint === "encourage" || hint === "urge"
   return (
     <svg
       key={hint}
       data-hint={hint}
-      viewBox="0 0 72 84"
-      className="companion-mark h-24 w-[5.15rem] shrink-0 overflow-visible"
+      viewBox={small ? "1.5 0.5 17 17" : "0 0 20 21"}
+      shapeRendering="crispEdges"
+      className={`seal ${small ? "seal-small" : ""} ${className}`}
       aria-hidden="true"
     >
-      <g className="companion-sparks">
-        <circle className="companion-spark" cx="14" cy="22" r="1.7" fill="#8f2d1f" />
-        <circle className="companion-spark companion-spark-b" cx="58" cy="16" r="1.5" fill="#8f2d1f" />
-        <circle className="companion-spark companion-spark-c" cx="62" cy="30" r="1.2" fill="#8f2d1f" />
-      </g>
-      <ellipse className="companion-shadow" cx="36" cy="78" rx="16" ry="2.2" fill="#1c1612" opacity="0.12" />
-      <g className="companion-figure">
-        <path
-          className="companion-body"
-          fill="#1c1612"
-          d="M22 44c2.6 2.2 7.2 3.2 14 3.2s11.4-1 14-3.2l6.5 26.2c.35 1.25-.6 2.5-1.9 2.5H17.4c-1.3 0-2.25-1.25-1.9-2.5L22 44z"
-        />
-        <rect className="companion-seal" x="32" y="54" width="8" height="8" fill="#8f2d1f" />
-        <g className="companion-head">
-          <circle className="companion-face" cx="36" cy="28" r="13" fill="#1c1612" />
-          <g className="companion-eyes-open" fill="none" stroke="#f3ecdf" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M27.6 28.2h5" />
-            <path d="M39.4 28.2h5" />
+      {!small && (
+        <>
+          <rect className="seal-shadow" x="5" y="19.4" width="10" height="0.8" fill={INK} opacity="0.12" />
+          {hint === "celebrate" && <rect className="seal-print" x="4" y="19.2" width="12" height="1" fill={SEAL} />}
+          {hint === "celebrate" && (
+            <g fill={SEAL}>
+              <rect className="seal-spark" x="1" y="3" width="1" height="1" />
+              <rect className="seal-spark seal-spark-b" x="18" y="1" width="1" height="1" />
+              <rect className="seal-spark seal-spark-c" x="19" y="5" width="1" height="1" fill={INK} />
+            </g>
+          )}
+          {hint === "sleepy" && (
+            <g fill={INK}>
+              <PixelZ className="seal-z" x={15} y={3} scale={0.5} />
+              <PixelZ className="seal-z seal-z-b" x={16.5} y={0} scale={0.7} />
+            </g>
+          )}
+        </>
+      )}
+
+      <g className="seal-figure">
+        {!small && (
+          <g fill={INK}>
+            <rect x="6" y="17" width="2" height="2" />
+            <rect x="12" y="17" width="2" height="2" />
           </g>
-          <g className="companion-eyes-shut" fill="none" stroke="#f3ecdf" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M27.4 27.2c1.7 2.6 3.6 2.6 5.3 0" />
-            <path d="M39.2 27.2c1.7 2.6 3.6 2.6 5.3 0" />
+        )}
+
+        {hint === "celebrate" ? (
+          <g fill={INK}>
+            <rect className="seal-arm-l seal-arm-up" x="2" y="5" width="2" height="4" />
+            <rect className="seal-arm-r seal-arm-up" x="16" y="5" width="2" height="4" />
           </g>
+        ) : (
+          <g fill={INK}>
+            <rect className="seal-arm-l" x="2" y="10" width="2" height="3" />
+            <rect className="seal-arm-r" x="16" y="10" width="2" height="3" />
+          </g>
+        )}
+
+        <g className="seal-body">
+          <rect x="4" y="15" width="12" height="2" fill={SEAL_FACE} />
+          <rect x="4" y="6" width="12" height="9" fill={SEAL} />
+
+          {awake && (
+            <g className="seal-eyes">
+              <rect x="6" y="8" width="3" height="3" fill={EYE} />
+              <rect x="11" y="8" width="3" height="3" fill={EYE} />
+              <g className="seal-pupils" fill={INK} style={{ transform: `translate(${look.x}px, ${look.y}px)` }}>
+                <rect x="7" y="9" width="1" height="2" />
+                <rect x="12" y="9" width="1" height="2" />
+              </g>
+            </g>
+          )}
+          {hint === "celebrate" && (
+            <g fill={INK}>
+              <rect x="6" y="9" width="1" height="1" />
+              <rect x="7" y="8" width="1" height="1" />
+              <rect x="8" y="9" width="1" height="1" />
+              <rect x="11" y="9" width="1" height="1" />
+              <rect x="12" y="8" width="1" height="1" />
+              <rect x="13" y="9" width="1" height="1" />
+            </g>
+          )}
+          {hint === "sleepy" && (
+            <g fill={INK}>
+              <rect x="6" y="10" width="3" height="1" />
+              <rect x="11" y="10" width="3" height="1" />
+            </g>
+          )}
+          {hint === "urge" && (
+            <g fill={INK}>
+              <rect x="6" y="7" width="1" height="1" />
+              <rect x="7" y="6" width="1" height="1" />
+              <rect x="12" y="6" width="1" height="1" />
+              <rect x="13" y="7" width="1" height="1" />
+            </g>
+          )}
+
+          <Mouth hint={hint} />
+        </g>
+
+        <g className="seal-handle" fill={INK}>
+          <rect x="7" y="1" width="6" height="2" />
+          <rect x="8" y="3" width="4" height="3" />
         </g>
       </g>
+
+      {hint === "urge" && (
+        <g className="seal-sweat" fill={SWEAT}>
+          <rect x="17" y="4" width="1" height="1" />
+          <rect x="16" y="5" width="2" height="2" />
+        </g>
+      )}
     </svg>
+  )
+}
+
+function Mouth({ hint }: { hint: CompanionHint }) {
+  if (hint === "encourage") {
+    return (
+      <g fill={INK}>
+        <rect x="8" y="12" width="1" height="1" />
+        <rect x="9" y="13" width="2" height="1" />
+        <rect x="11" y="12" width="1" height="1" />
+      </g>
+    )
+  }
+  if (hint === "urge") {
+    return (
+      <g fill={INK}>
+        <rect x="8" y="13" width="1" height="1" />
+        <rect x="9" y="12" width="2" height="1" />
+        <rect x="11" y="13" width="1" height="1" />
+      </g>
+    )
+  }
+  if (hint === "celebrate") {
+    return (
+      <g>
+        <rect x="8" y="12" width="4" height="2" fill={INK} />
+        <rect x="9" y="13" width="2" height="1" fill={SEAL_FACE} />
+      </g>
+    )
+  }
+  return <rect x="9" y="13" width="2" height="1" fill={INK} />
+}
+
+function PixelZ({ className, x, y, scale }: { className: string; x: number; y: number; scale: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <g className={className}>
+        <rect x="0" y="0" width="4" height="1" />
+        <rect x="2" y="1" width="1" height="1" />
+        <rect x="1" y="2" width="1" height="1" />
+        <rect x="0" y="3" width="4" height="1" />
+      </g>
+    </g>
   )
 }

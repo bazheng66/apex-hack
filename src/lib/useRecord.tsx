@@ -45,7 +45,26 @@ export function RecordProvider({ children }: { children: ReactNode }) {
     },
     demo: () => { const today = todayKey(); store.update({ ...createDemo(today), goal: { examDate: shiftDate(today, 21), target: 80 } }) },
   }
-  if (!view.ready) return <main className="sheet mx-auto max-w-xl px-5 py-16" role="status">正在连接你的练习记录…</main>
+  if (!view.ready) {
+    return (
+      <main className="sheet mx-auto min-h-svh max-w-xl px-5 py-24 sm:px-6" role="status" aria-live="polite">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[2px] bg-seal font-serif text-lg font-semibold leading-none text-paper">T</span>
+          <div>
+            <p className="font-serif text-2xl font-bold leading-none tracking-wide text-ink">Testpass</p>
+            <p className="mt-1.5 text-xs tracking-[0.14em] text-muted">正在连接练习记录</p>
+          </div>
+        </div>
+        <div className="mt-12 space-y-4">
+          <div className="h-6 w-4/5 animate-pulse rounded-[2px] bg-line" />
+          <div className="h-6 w-3/5 animate-pulse rounded-[2px] bg-line" />
+          <div className="mt-10 h-20 w-full animate-pulse rounded-[2px] bg-card" />
+          <div className="h-20 w-full animate-pulse rounded-[2px] bg-card" />
+        </div>
+        <p className="mt-10 text-xs leading-6 text-muted">第一次打开要先建立一个匿名身份，通常两三秒。</p>
+      </main>
+    )
+  }
   return <RecordContext.Provider value={api}>{children}</RecordContext.Provider>
 }
 export function useRecord(): RecordApi {
