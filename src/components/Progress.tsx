@@ -38,6 +38,7 @@ export default function Progress() {
     sessions: state.sessions,
     today: todayKey(),
     goal: state.goal,
+    paper: state.paper,
   })
 
   return (

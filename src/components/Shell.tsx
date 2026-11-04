@@ -34,16 +34,21 @@ export default function Shell() {
               <p className="mt-1.5 font-serif text-[13px] tracking-[0.08em] text-muted">个性化 AI 考试通过助手</p>
             </div>
           </div>
-          <button
-            type="button"
-            className="mt-1 shrink-0 px-1 py-1 text-xs text-muted hover:text-seal"
-            onClick={() => {
-              reset()
-              navigate("/")
-            }}
-          >
-            重新设定
-          </button>
+          <div className="mt-1 flex shrink-0 items-center gap-3">
+            <NavLink to="/account" className="px-1 py-1 text-xs text-muted hover:text-seal" aria-label="账号">
+              账号
+            </NavLink>
+            <button
+              type="button"
+              className="px-1 py-1 text-xs text-muted hover:text-seal"
+              onClick={() => {
+                reset()
+                navigate("/")
+              }}
+            >
+              重新设定
+            </button>
+          </div>
         </div>
         <div className="mt-5 flex items-stretch justify-between gap-3 border-b border-line">
           <nav className="flex shrink-0 gap-0.5 sm:gap-1" aria-label="主要页面">

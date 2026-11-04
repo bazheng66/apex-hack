@@ -153,4 +153,45 @@ describe("projectProgress", () => {
     expect(line).toContain("还没有练习记录")
     expect(line).not.toContain("大约到")
   })
+
+  it("weights chapters by how much of the paper they carry", () => {
+    const paper = {
+      questions: 30,
+      difficulty: "normal" as const,
+      shares: [
+        { topicId: "paging", percent: 75 },
+        { topicId: "sync", percent: 25 },
+      ],
+    }
+    const rows = [
+      { topicId: "paging", score: 40 },
+      { topicId: "sync", score: 80 },
+    ]
+    const projection = projectProgress({
+      mastery: rows,
+      sessions: [{ date: "2026-11-01", scoreBefore: 40, scoreAfter: 44 }],
+      today: "2026-11-03",
+      examDate: "2026-11-08",
+      target: 80,
+      paper,
+    })
+    expect(projection.expected).toBe(50)
+    expect(projection.average).toBe(50)
+    expect(projection.samples).toBe(1)
+    expect(forecastLine({ mastery: rows, sessions: [{ date: "2026-11-01", scoreBefore: 40, scoreAfter: 44 }], today: "2026-11-03", goal: { examDate: "2026-11-08", target: 80 }, paper })).toContain("按各章占比折算")
+  })
+
+  it("tilts the expectation for paper difficulty", () => {
+    const rows = [
+      { topicId: "paging", score: 50 },
+      { topicId: "sync", score: 50 },
+    ]
+    const base = { questions: 30, shares: [{ topicId: "paging", percent: 50 }, { topicId: "sync", percent: 50 }] }
+    const normal = projectProgress({ mastery: rows, sessions: [], today: "2026-11-03", examDate: "2026-11-08", target: 60, paper: { ...base, difficulty: "normal" } })
+    const hard = projectProgress({ mastery: rows, sessions: [], today: "2026-11-03", examDate: "2026-11-08", target: 60, paper: { ...base, difficulty: "hard" } })
+    const easy = projectProgress({ mastery: rows, sessions: [], today: "2026-11-03", examDate: "2026-11-08", target: 60, paper: { ...base, difficulty: "easy" } })
+    expect(normal.expected).toBe(50)
+    expect(hard.expected).toBe(44)
+    expect(easy.expected).toBe(55)
+  })
 })

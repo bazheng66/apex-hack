@@ -91,6 +91,15 @@ export interface Goal {
   target: number
 }
 
+export type PaperDifficulty = "easy" | "normal" | "hard"
+
+/** The paper the student will actually sit: how many questions, how hard, and which chapters carry them. */
+export interface PaperProfile {
+  questions: number
+  difficulty: PaperDifficulty
+  shares: { topicId: string; percent: number }[]
+}
+
 export interface RecordState {
   examId: ExamId
   level: LevelId
@@ -104,6 +113,7 @@ export interface RecordState {
   cards?: ReviewCard[]
   abilities?: Ability[]
   mistakes?: MistakeNote[]
+  paper?: PaperProfile | null
 }
 
 export interface GradeItem {

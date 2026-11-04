@@ -1,4 +1,5 @@
 import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom"
+import Account from "./components/Account.tsx"
 import Mock from "./components/Mock.tsx"
 import Progress from "./components/Progress.tsx"
 import Setup from "./components/Setup.tsx"
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="/talk" element={<Talk />} />
             <Route path="/mock" element={<Mock />} />
             <Route path="/progress" element={<Progress />} />
+            <Route path="/account" element={<Account />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
